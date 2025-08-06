@@ -22,6 +22,7 @@ jobs:
         /bin/tar --version && echo "tar found" || echo "tar not found"
         /usr/bin/python3 --version && echo "python3 found" || echo "python3 not found"
         /usr/bin/pip3 --version && echo "pip3 found" || echo "pip3 not found"
+        /home/runner/.local/bin/buildozer --version && echo "buildozer found" || echo "buildozer not found"
     - name: Clean apt locks
       run: |
         echo "Cleaning apt locks..."
@@ -55,12 +56,14 @@ jobs:
         /usr/bin/wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
         /usr/bin/unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
         mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        echo "Installing SDK components..."
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
         # Verify SDK installation
+        ls -la $ANDROID_HOME/cmdline-tools/latest/bin/ || echo "cmdline-tools directory not found"
         ls -la $ANDROID_HOME/build-tools/30.0.3/ || echo "Build-tools directory not found"
-        if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
         if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then echo "sdkmanager found"; else echo "sdkmanager not found"; exit 1; fi
+        if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
     - name: Initialize Buildozer
       run: |
         /home/runner/.local/bin/buildozer init
@@ -75,6 +78,7 @@ jobs:
         sed -i 's/version = .*/version = 1.0/' buildozer.spec
         sed -i 's/orientation = .*/orientation = portrait/' buildozer.spec
         sed -i 's|#android.sdk_path =.*|android.sdk_path = /home/runner/android-sdk|' buildozer.spec
+        sed -i 's|#android.ndk_path =.*|android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b|' buildozer.spec
     - name: Build APK
       run: |
         export ANDROID_HOME=/home/runner/android-sdk
