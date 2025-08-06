@@ -46,7 +46,7 @@ jobs:
         /usr/bin/sudo rm -f /var/lib/apt/lists/lock
         /usr/bin/sudo rm -f /var/cache/apt/*.bin
         /usr/bin/sudo rm -rf /var/lib/apt/lists/*
-    - name: Add deadsnakes PPA for python3.8-dev
+    - name: Add deadsnakes PPA for python3.8-dev and python3.9
       run: |
         /usr/bin/sudo /usr/bin/apt-get update
         /usr/bin/sudo /usr/bin/apt-get install -y software-properties-common
@@ -54,7 +54,7 @@ jobs:
         /usr/bin/sudo /usr/bin/apt-get update
     - name: Install system dependencies
       run: |
-        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev python3.8-dev python3.9 python3.9-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libffi8 libssl-dev gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
+        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev python3.8-dev python3.9 python3.9-dev python3-pip ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libffi8 libssl-dev gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
         /usr/bin/git --version
         /bin/tar --version
         /usr/bin/java -version
@@ -76,15 +76,15 @@ jobs:
         echo "Current pip version after upgrade:"
         /usr/bin/python3 -m pip --version
         echo "Installing base Python dependencies..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --verbose > pip_base_install.log 2>&1
+        /usr/bin/sudo /usr/bin/python3 -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1
         echo "Listing base pip install log:"
         cat pip_base_install.log
-        echo "Manually cloning pyjnius to avoid network issues..."
-        /usr/bin/git clone --branch 1.6.1 https://github.com/kivy/pyjnius.git /tmp/pyjnius || echo "Failed to clone pyjnius repository"
+        echo "Manually cloning pyjnius with retry..."
+        for i in {1..3}; do /usr/bin/git clone --branch 1.6.1 https://github.com/kivy/pyjnius.git /tmp/pyjnius && break || echo "Clone attempt $i failed, retrying..."; sleep 5; done
         echo "Listing /tmp/pyjnius contents:"
         ls -la /tmp/pyjnius || echo "No files found in /tmp/pyjnius"
         echo "Installing pyjnius from cloned source..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install /tmp/pyjnius --no-use-wheel --verbose > pip_pyjnius_install.log 2>&1 || echo "pip install from source failed"
+        /usr/bin/sudo /usr/bin/python3 -m pip install /tmp/pyjnius --no-use-wheel --no-cache-dir --verbose > pip_pyjnius_install.log 2>&1 || echo "pip install from source failed"
         echo "Listing pyjnius pip install log:"
         cat pip_pyjnius_install.log
         echo "Alternative: Installing pyjnius via setup.py..."
@@ -92,7 +92,7 @@ jobs:
         echo "Listing pyjnius setup.py install log:"
         cat /tmp/pip_pyjnius_setup_install.log
         echo "Fallback: Installing pyjnius from PyPI with no binary..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install pyjnius==1.6.1 --no-binary pyjnius --verbose > pip_pyjnius_pypi_install.log 2>&1 || echo "PyPI install failed, checking logs"
+        /usr/bin/sudo /usr/bin/python3 -m pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install.log 2>&1 || echo "PyPI install failed, checking logs"
         echo "Listing pyjnius PyPI install log:"
         cat pip_pyjnius_pypi_install.log
         echo "Listing installed Python packages:"
@@ -109,25 +109,24 @@ jobs:
       run: |
         echo "Python 3.8 failed, trying Python 3.9..."
         /usr/bin/sudo /usr/bin/apt-get install -y python3.9 python3.9-dev python3.9-distutils
-        /usr/bin/sudo update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 2
-        /usr/bin/sudo update-alternatives --install /usr/bin/pip3 pip3 /usr/bin/pip3.9 2
-        /usr/bin/sudo /usr/bin/python3 -m pip install --upgrade pip
+        /usr/bin/sudo /usr/bin/python3.9 -m ensurepip --upgrade
+        /usr/bin/sudo /usr/bin/python3.9 -m pip install --upgrade pip
         echo "Current pip version after upgrade (Python 3.9):"
-        /usr/bin/python3 -m pip --version
+        /usr/bin/python3.9 -m pip --version
         echo "Installing base Python dependencies with Python 3.9..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --verbose > pip_base_install_3.9.log 2>&1
+        /usr/bin/sudo /usr/bin/python3.9 -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install_3.9.log 2>&1
         echo "Listing base pip install log (Python 3.9):"
         cat pip_base_install_3.9.log
         echo "Installing pyjnius from cloned source with Python 3.9..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install /tmp/pyjnius --no-use-wheel --verbose > pip_pyjnius_install_3.9.log 2>&1 || echo "pip install from source failed (Python 3.9)"
+        /usr/bin/sudo /usr/bin/python3.9 -m pip install /tmp/pyjnius --no-use-wheel --no-cache-dir --verbose > pip_pyjnius_install_3.9.log 2>&1 || echo "pip install from source failed (Python 3.9)"
         echo "Listing pyjnius pip install log (Python 3.9):"
         cat pip_pyjnius_install_3.9.log
         echo "Alternative: Installing pyjnius via setup.py with Python 3.9..."
-        cd /tmp/pyjnius && /usr/bin/sudo /usr/bin/python3 setup.py install --verbose > /tmp/pip_pyjnius_setup_install_3.9.log 2>&1 || echo "setup.py install failed (Python 3.9)"
+        cd /tmp/pyjnius && /usr/bin/sudo /usr/bin/python3.9 setup.py install --verbose > /tmp/pip_pyjnius_setup_install_3.9.log 2>&1 || echo "setup.py install failed (Python 3.9)"
         echo "Listing pyjnius setup.py install log (Python 3.9):"
         cat /tmp/pip_pyjnius_setup_install_3.9.log
         echo "Listing installed Python packages (Python 3.9):"
-        /usr/bin/python3 -m pip list
+        /usr/bin/python3.9 -m pip list
     - name: Clean Buildozer and python-for-android cache
       run: |
         echo "Cleaning Buildozer and python-for-android cache..."
