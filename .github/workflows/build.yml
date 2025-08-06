@@ -9,7 +9,7 @@ jobs:
       ANDROID_HOME: /home/runner/android-sdk
       ANDROID_SDK_ROOT: /home/runner/android-sdk
       JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
-      PATH: /bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3:$JAVA_HOME/bin
+      PATH: /bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
       PYTHONPATH: /home/runner/.local/lib/python3.8/site-packages:/usr/lib/python3/dist-packages:/usr/local/lib/python3.8/dist-packages:$PYTHONPATH
     steps:
     - name: Diagnose environment
@@ -18,14 +18,14 @@ jobs:
         echo "Current PATH: $PATH"
         echo "Current PYTHONPATH: $PYTHONPATH"
         echo "Current JAVA_HOME: $JAVA_HOME"
+        echo "Java version:"
+        /usr/bin/java -version || echo "Java not found"
         echo "Python version:"
         /usr/bin/python3 --version || echo "Python not found"
         which /usr/bin/python3
         echo "Pip version:"
         /usr/bin/pip3 --version || echo "pip3 not found"
         which /usr/bin/pip3
-        echo "Java version:"
-        java -version || echo "Java not found"
         echo "Listing /bin, /usr/bin, /usr/local/bin, ~/.local/bin contents:"
         ls -la /bin /usr/bin /usr/local/bin /home/runner/.local/bin || echo "Failed to list system directories"
         echo "Checking critical commands:"
@@ -47,9 +47,10 @@ jobs:
         /usr/bin/sudo /usr/bin/apt-get update
     - name: Install system dependencies
       run: |
-        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev python3.8-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libffi6 libssl-dev gcc g++ libc6-dev libstdc++6
+        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev python3.8-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libffi8 libssl-dev gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
         /usr/bin/git --version
         /bin/tar --version
+        /usr/bin/java -version
     - name: Checkout repository
       uses: actions/checkout@v4
     - name: Set up Python
@@ -60,35 +61,33 @@ jobs:
       run: |
         echo "Cleaning Python user environment..."
         /usr/bin/sudo rm -rf /home/runner/.local /home/runner/.kivy /home/runner/.cache/pip
-    - name: Create and activate virtual environment
-      run: |
-        echo "Creating virtual environment..."
-        /usr/bin/python3 -m venv /home/runner/venv
-        source /home/runner/venv/bin/activate
-        echo "Virtual environment Python version:"
-        python --version
-        echo "Virtual environment pip version:"
-        pip --version
     - name: Install Python dependencies
       run: |
-        echo "Upgrading pip in virtual environment..."
-        /home/runner/venv/bin/pip install --upgrade pip
+        echo "Upgrading pip..."
+        /usr/bin/sudo /usr/bin/python3 -m pip install --upgrade pip
+        echo "Current pip version after upgrade:"
+        /usr/bin/python3 -m pip --version
         echo "Installing base Python dependencies..."
-        /home/runner/venv/bin/pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --verbose > pip_base_install.log 2>&1
+        /usr/bin/sudo /usr/bin/python3 -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --verbose > pip_base_install.log 2>&1
         echo "Listing base pip install log:"
         cat pip_base_install.log
         echo "Installing pyjnius from source..."
-        /home/runner/venv/bin/pip install git+https://github.com/kivy/pyjnius.git@1.6.1 --verbose 2>&1 | tee pip_pyjnius_install.log
+        /usr/bin/sudo /usr/bin/python3 -m pip install git+https://github.com/kivy/pyjnius.git@1.6.1 --verbose > pip_pyjnius_install.log 2>&1
+        echo "Listing pyjnius pip install log:"
+        cat pip_pyjnius_install.log
+        echo "Fallback: Installing pyjnius from PyPI if source fails..."
+        /usr/bin/sudo /usr/bin/python3 -m pip install pyjnius==1.6.1 --verbose > pip_pyjnius_pypi_install.log 2>&1 || echo "PyPI install failed, checking logs"
+        echo "Listing pyjnius PyPI install log:"
+        cat pip_pyjnius_pypi_install.log
         echo "Listing installed Python packages:"
-        /home/runner/venv/bin/pip list
+        /usr/bin/python3 -m pip list
         echo "Listing Python site-packages directories:"
-        ls -la /home/runner/venv/lib/python3.8/site-packages/ || echo "Failed to list venv site-packages"
         ls -la /usr/lib/python3/dist-packages/ /usr/local/lib/python3.8/dist-packages/ || echo "Failed to list system site-packages"
         ls -la /home/runner/.local/lib/python3.8/site-packages/ || echo "Failed to list user site-packages"
         echo "Checking Python dependencies:"
-        /home/runner/venv/bin/python -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Kivy import failed"; exit 1; }
-        /home/runner/venv/bin/python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Pyjnius import failed"; exit 1; }
-        /home/runner/venv/bin/python -c "import plyer; print('Plyer imported successfully')" || { echo "Plyer import failed"; exit 1; }
+        /usr/bin/python3 -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Kivy import failed"; exit 1; }
+        /usr/bin/python3 -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Pyjnius import failed"; exit 1; }
+        /usr/bin/python3 -c "import plyer; print('Plyer imported successfully')" || { echo "Plyer import failed"; exit 1; }
     - name: Clean Buildozer and python-for-android cache
       run: |
         echo "Cleaning Buildozer and python-for-android cache..."
@@ -116,8 +115,7 @@ jobs:
         if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
     - name: Initialize Buildozer
       run: |
-        source /home/runner/venv/bin/activate
-        /home/runner/venv/bin/buildozer init
+        /home/runner/.local/bin/buildozer init
     - name: Configure Buildozer
       run: |
         sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.6.1,plyer,difflib/' buildozer.spec
@@ -137,10 +135,9 @@ jobs:
         export ANDROID_HOME=/home/runner/android-sdk
         export ANDROID_SDK_ROOT=/home/runner/android-sdk
         export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-        export PATH=/bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3:$JAVA_HOME/bin
-        export PYTHONPATH=/home/runner/.local/lib/python3.8/site-packages:/usr/lib/python3/dist-packages:/usr/local/lib/python3.8/dist-packages:/home/runner/venv/lib/python3.8/site-packages:$PYTHONPATH
-        source /home/runner/venv/bin/activate
-        /home/runner/venv/bin/buildozer android debug
+        export PYTHONPATH=/home/runner/.local/lib/python3.8/site-packages:/usr/lib/python3/dist-packages:/usr/local/lib/python3.8/dist-packages:$PYTHONPATH
+        export PATH=/bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
+        /home/runner/.local/bin/buildozer android debug
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
