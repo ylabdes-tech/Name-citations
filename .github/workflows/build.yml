@@ -4,22 +4,24 @@ on:
     branches: [main]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04  # Utiliser ubuntu-22.04 pour éviter les problèmes potentiels avec ubuntu-latest
     env:
       ANDROID_HOME: /home/runner/android-sdk
       ANDROID_SDK_ROOT: /home/runner/android-sdk
       PATH: /bin:/usr/bin:/usr/local/bin:$PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
     steps:
-    - name: Verify environment
+    - name: Diagnose environment
       run: |
-        echo "Checking environment..."
+        echo "Diagnosing environment..."
         echo "Current PATH: $PATH"
-        ls /bin /usr/bin /usr/local/bin
-        /usr/bin/apt-get --version || { echo "apt-get not found"; exit 1; }
-        /usr/bin/git --version || { echo "Git not found"; exit 1; }
-        /bin/tar --version || { echo "Tar not found"; exit 1; }
-        /usr/bin/python3 --version || { echo "Python3 not found"; exit 1; }
-        /usr/bin/pip3 --version || { echo "Pip not found"; exit 1; }
+        echo "Listing /bin, /usr/bin, /usr/local/bin contents:"
+        ls -la /bin /usr/bin /usr/local/bin || echo "Failed to list system directories"
+        echo "Checking critical commands:"
+        /usr/bin/apt-get --version && echo "apt-get found" || echo "apt-get not found"
+        /usr/bin/git --version && echo "git found" || echo "git not found"
+        /bin/tar --version && echo "tar found" || echo "tar not found"
+        /usr/bin/python3 --version && echo "python3 found" || echo "python3 not found"
+        /usr/bin/pip3 --version && echo "pip3 found" || echo "pip3 not found"
     - name: Install Git and tar
       run: |
         /usr/bin/apt-get update
@@ -70,7 +72,7 @@ jobs:
         export PATH=/bin:/usr/bin:/usr/local/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
         buildozer android debug
     - name: Upload APK
-      uses: actions/checkout@v4
+      uses: actions/upload-artifact@v4
       with:
         name: apk
         path: bin/*.apk
