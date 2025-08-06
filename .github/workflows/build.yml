@@ -11,13 +11,11 @@ jobs:
       JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
       LD_LIBRARY_PATH: /usr/lib/jvm/java-8-openjdk-amd64/lib/server:/usr/lib
       PATH: /bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
-      PYTHONPATH: /home/runner/.local/lib/python3.8/site-packages:/usr/lib/python3/dist-packages:/usr/local/lib/python3.8/dist-packages:$PYTHONPATH
     steps:
     - name: Diagnose environment
       run: |
         echo "Diagnosing environment..."
         echo "Current PATH: $PATH"
-        echo "Current PYTHONPATH: $PYTHONPATH"
         echo "Current JAVA_HOME: $JAVA_HOME"
         echo "Current LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
         echo "Java version:"
@@ -32,6 +30,8 @@ jobs:
         echo "Pip version:"
         /usr/bin/pip3 --version || echo "pip3 not found"
         which /usr/bin/pip3
+        echo "Checking Python site paths:"
+        /usr/bin/python3 -m site
         echo "Checking network connectivity to GitHub..."
         ping -c 4 github.com || echo "Failed to ping github.com"
         curl -I https://github.com/kivy/pyjnius.git || echo "Failed to access pyjnius repository"
@@ -41,7 +41,6 @@ jobs:
         /usr/bin/sudo /usr/bin/apt-get --version && echo "apt-get found" || echo "apt-get not found"
         /usr/bin/git --version && echo "git found" || echo "git not found"
         /bin/tar --version && echo "tar found" || echo "tar not found"
-        /home/runner/.local/bin/buildozer --version && echo "buildozer found" || echo "buildozer not found"
     - name: Clean apt locks
       run: |
         echo "Cleaning apt locks..."
@@ -56,7 +55,7 @@ jobs:
         /usr/bin/sudo /usr/bin/apt-get update
     - name: Install system dependencies
       run: |
-        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev python3.8-dev python3.9 python3.9-dev python3-pip ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libffi8 libssl-dev gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
+        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev python3.8 python3.8-dev python3.9 python3.9-dev python3-pip ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libffi8 libssl-dev gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
         /usr/bin/git --version
         /bin/tar --version
         /usr/bin/java -version
@@ -71,14 +70,20 @@ jobs:
       run: |
         echo "Cleaning Python user environment..."
         /usr/bin/sudo rm -rf /home/runner/.local /home/runner/.kivy /home/runner/.cache/pip
+    - name: Create and activate virtual environment
+      run: |
+        echo "Creating virtual environment..."
+        /usr/bin/python3 -m venv /home/runner/venv
+        source /home/runner/venv/bin/activate
+        echo "Upgrading pip in virtual environment..."
+        pip install --upgrade pip
+        echo "Current pip version in virtual environment:"
+        pip --version
     - name: Install Python dependencies
       run: |
-        echo "Upgrading pip..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install --upgrade pip
-        echo "Current pip version after upgrade:"
-        /usr/bin/python3 -m pip --version
+        source /home/runner/venv/bin/activate
         echo "Installing base Python dependencies..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1
+        pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1
         echo "Listing base pip install log:"
         cat pip_base_install.log
         echo "Manually cloning pyjnius with retry..."
@@ -86,30 +91,34 @@ jobs:
         echo "Listing /tmp/pyjnius contents:"
         ls -la /tmp/pyjnius || echo "No files found in /tmp/pyjnius"
         if [ -f "/tmp/pyjnius/setup.py" ]; then echo "setup.py found in /tmp/pyjnius"; else echo "setup.py not found in /tmp/pyjnius"; exit 1; fi
+        echo "Checking /tmp/pyjnius permissions:"
+        ls -la /tmp/pyjnius/setup.py || echo "Cannot list setup.py"
         echo "Installing pyjnius from cloned source..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install /tmp/pyjnius --no-use-wheel --no-cache-dir --verbose > pip_pyjnius_install.log 2>&1 || echo "pip install from source failed"
+        pip install /tmp/pyjnius --no-use-wheel --no-cache-dir --verbose > pip_pyjnius_install.log 2>&1 || echo "pip install from source failed"
         echo "Listing pyjnius pip install log:"
         cat pip_pyjnius_install.log
         echo "Alternative: Installing pyjnius via setup.py..."
-        cd /tmp/pyjnius && /usr/bin/sudo /usr/bin/python3 setup.py install --verbose > /tmp/pip_pyjnius_setup_install.log 2>&1 || echo "setup.py install failed"
+        cd /tmp/pyjnius && python3 setup.py install --verbose > /tmp/pip_pyjnius_setup_install.log 2>&1 || echo "setup.py install failed"
         echo "Listing pyjnius setup.py install log:"
         cat /tmp/pip_pyjnius_setup_install.log
         echo "Fallback: Installing pyjnius from PyPI with no binary..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install.log 2>&1 || echo "PyPI install failed, checking logs"
+        pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install.log 2>&1 || echo "PyPI install failed"
         echo "Listing pyjnius PyPI install log:"
         cat pip_pyjnius_pypi_install.log
-        echo "Fallback: Trying pyjnius master branch..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install git+https://github.com/kivy/pyjnius.git@master --no-cache-dir --verbose > pip_pyjnius_master_install.log 2>&1 || echo "Master branch install failed"
-        echo "Listing pyjnius master install log:"
-        cat pip_pyjnius_master_install.log
+        echo "Fallback: Trying pyjnius 1.5.0 from PyPI..."
+        pip install pyjnius==1.5.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_1_5_0_install.log 2>&1 || echo "PyPI 1.5.0 install failed"
+        echo "Listing pyjnius 1.5.0 install log:"
+        cat pip_pyjnius_1_5_0_install.log
         echo "Listing installed Python packages:"
-        /usr/bin/python3 -m pip list
+        pip list
         echo "Listing Python site-packages directories:"
-        ls -la /usr/lib/python3/dist-packages/ /usr/local/lib/python3.8/dist-packages/ /home/runner/.local/lib/python3.8/site-packages/ || echo "Failed to list site-packages"
+        ls -la /home/runner/venv/lib/python3.8/site-packages/ || echo "Failed to list virtualenv site-packages"
+        echo "Checking Python site paths:"
+        python3 -m site
         echo "Checking Python dependencies:"
-        /usr/bin/python3 -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Kivy import failed"; exit 1; }
-        /usr/bin/python3 -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Pyjnius import failed"; exit 1; }
-        /usr/bin/python3 -c "import plyer; print('Plyer imported successfully')" || { echo "Plyer import failed"; exit 1; }
+        python3 -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Kivy import failed"; exit 1; }
+        python3 -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Pyjnius import failed"; exit 1; }
+        python3 -c "import plyer; print('Plyer imported successfully')" || { echo "Plyer import failed"; exit 1; }
     - name: Fallback to Python 3.9 if Python 3.8 fails
       if: failure()
       run: |
@@ -117,30 +126,42 @@ jobs:
         /usr/bin/sudo /usr/bin/apt-get install -y python3.9 python3.9-dev python3.9-distutils
         /usr/bin/sudo /usr/bin/python3.9 -m ensurepip --upgrade
         /usr/bin/sudo /usr/bin/python3.9 -m pip install --upgrade pip
+        echo "Creating virtual environment for Python 3.9..."
+        /usr/bin/python3.9 -m venv /home/runner/venv3.9
+        source /home/runner/venv3.9/bin/activate
         echo "Current Python 3.9 version:"
-        /usr/bin/python3.9 --version
+        python3 --version
         echo "Current pip version for Python 3.9:"
-        /usr/bin/python3.9 -m pip --version
+        pip --version
         echo "Installing base Python dependencies with Python 3.9..."
-        /usr/bin/sudo /usr/bin/python3.9 -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install_3.9.log 2>&1
+        pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install_3.9.log 2>&1
         echo "Listing base pip install log (Python 3.9):"
         cat pip_base_install_3.9.log
         echo "Installing pyjnius from cloned source with Python 3.9..."
-        /usr/bin/sudo /usr/bin/python3.9 -m pip install /tmp/pyjnius --no-use-wheel --no-cache-dir --verbose > pip_pyjnius_install_3.9.log 2>&1 || echo "pip install from source failed (Python 3.9)"
+        pip install /tmp/pyjnius --no-use-wheel --no-cache-dir --verbose > pip_pyjnius_install_3.9.log 2>&1 || echo "pip install from source failed (Python 3.9)"
         echo "Listing pyjnius pip install log (Python 3.9):"
         cat pip_pyjnius_install_3.9.log
         echo "Alternative: Installing pyjnius via setup.py with Python 3.9..."
-        cd /tmp/pyjnius && /usr/bin/sudo /usr/bin/python3.9 setup.py install --verbose > /tmp/pip_pyjnius_setup_install_3.9.log 2>&1 || echo "setup.py install failed (Python 3.9)"
+        cd /tmp/pyjnius && python3 setup.py install --verbose > /tmp/pip_pyjnius_setup_install_3.9.log 2>&1 || echo "setup.py install failed (Python 3.9)"
         echo "Listing pyjnius setup.py install log (Python 3.9):"
         cat /tmp/pip_pyjnius_setup_install_3.9.log
-        echo "Fallback: Installing pyjnius from PyPI with Python 3.9..."
-        /usr/bin/sudo /usr/bin/python3.9 -m pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install_3.9.log 2>&1 || echo "PyPI install failed (Python 3.9)"
+        echo "Fallback: Installing pyjnius 1.6.1 from PyPI with Python 3.9..."
+        pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install_3.9.log 2>&1 || echo "PyPI install failed (Python 3.9)"
         echo "Listing pyjnius PyPI install log (Python 3.9):"
         cat pip_pyjnius_pypi_install_3.9.log
+        echo "Fallback: Installing pyjnius 1.5.0 from PyPI with Python 3.9..."
+        pip install pyjnius==1.5.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_1_5_0_install_3.9.log 2>&1 || echo "PyPI 1.5.0 install failed (Python 3.9)"
+        echo "Listing pyjnius 1.5.0 install log (Python 3.9):"
+        cat pip_pyjnius_1_5_0_install_3.9.log
         echo "Listing installed Python packages (Python 3.9):"
-        /usr/bin/python3.9 -m pip list
+        pip list
+        echo "Listing Python site-packages directories:"
+        ls -la /home/runner/venv3.9/lib/python3.9/site-packages/ || echo "Failed to list virtualenv site-packages"
+        echo "Checking Python site paths:"
+        python3 -m site
     - name: Clean Buildozer and python-for-android cache
       run: |
+        source /home/runner/venv/bin/activate
         echo "Cleaning Buildozer and python-for-android cache..."
         /usr/bin/sudo rm -rf /home/runner/.buildozer
         /usr/bin/sudo rm -rf .buildozer
@@ -166,9 +187,11 @@ jobs:
         if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
     - name: Initialize Buildozer
       run: |
-        /home/runner/.local/bin/buildozer init
+        source /home/runner/venv/bin/activate
+        buildozer init
     - name: Configure Buildozer
       run: |
+        source /home/runner/venv/bin/activate
         sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.6.1,plyer,difflib/' buildozer.spec
         sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
         sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
@@ -183,13 +206,13 @@ jobs:
         sed -i 's/android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
     - name: Build APK
       run: |
+        source /home/runner/venv/bin/activate
         export ANDROID_HOME=/home/runner/android-sdk
         export ANDROID_SDK_ROOT=/home/runner/android-sdk
         export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
         export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/lib/server:/usr/lib
-        export PYTHONPATH=/home/runner/.local/lib/python3.8/site-packages:/usr/lib/python3/dist-packages:/usr/local/lib/python3.8/dist-packages:$PYTHONPATH
         export PATH=/bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
-        /home/runner/.local/bin/buildozer android debug
+        buildozer android debug
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
