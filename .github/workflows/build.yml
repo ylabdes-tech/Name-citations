@@ -50,6 +50,10 @@ jobs:
         /usr/bin/python3 -m pip list
         echo "Checking buildozer installation:"
         /home/runner/.local/bin/buildozer --version || { echo "buildozer not found"; exit 1; }
+    - name: Clean Buildozer cache
+      run: |
+        echo "Cleaning Buildozer cache..."
+        /usr/bin/sudo rm -rf /home/runner/.buildozer
     - name: Install Android SDK
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
@@ -59,10 +63,15 @@ jobs:
         echo "Installing SDK components..."
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
+        # Create symbolic link for sdkmanager to match Buildozer's expected path
+        mkdir -p $ANDROID_HOME/tools/bin
+        ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
         # Verify SDK installation
         ls -la $ANDROID_HOME/cmdline-tools/latest/bin/ || echo "cmdline-tools directory not found"
+        ls -la $ANDROID_HOME/tools/bin/ || echo "tools/bin directory not found"
         ls -la $ANDROID_HOME/build-tools/30.0.3/ || echo "Build-tools directory not found"
         if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then echo "sdkmanager found"; else echo "sdkmanager not found"; exit 1; fi
+        if [ -f "$ANDROID_HOME/tools/bin/sdkmanager" ]; then echo "sdkmanager symlink found"; else echo "sdkmanager symlink not found"; exit 1; fi
         if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
     - name: Initialize Buildozer
       run: |
