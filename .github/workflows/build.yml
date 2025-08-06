@@ -17,9 +17,11 @@ jobs:
         echo "Current PATH: $PATH"
         echo "Current PYTHONPATH: $PYTHONPATH"
         echo "Python version:"
-        /usr/bin/python3.8 --version || echo "Python 3.8 not found"
+        /usr/bin/python3 --version || echo "Python not found"
+        which /usr/bin/python3
         echo "Pip version:"
         /usr/bin/pip3 --version || echo "pip3 not found"
+        which /usr/bin/pip3
         echo "Listing /bin, /usr/bin, /usr/local/bin, ~/.local/bin contents:"
         ls -la /bin /usr/bin /usr/local/bin /home/runner/.local/bin || echo "Failed to list system directories"
         echo "Checking critical commands:"
@@ -36,7 +38,7 @@ jobs:
     - name: Install system dependencies
       run: |
         /usr/bin/sudo /usr/bin/apt-get update
-        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev python3.8 python3.8-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libssl-dev gcc g++ libc6-dev libstdc++6
+        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libssl-dev gcc g++ libc6-dev libstdc++6
         /usr/bin/git --version
         /bin/tar --version
     - name: Checkout repository
@@ -52,24 +54,24 @@ jobs:
     - name: Install Python dependencies
       run: |
         echo "Upgrading pip..."
-        /usr/bin/sudo /usr/bin/python3.8 -m pip install --upgrade pip
+        /usr/bin/sudo /usr/bin/python3 -m pip install --upgrade pip
         echo "Installing base Python dependencies..."
-        /usr/bin/sudo /usr/bin/python3.8 -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --verbose > pip_base_install.log 2>&1
+        /usr/bin/sudo /usr/bin/python3 -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --verbose > pip_base_install.log 2>&1
         echo "Listing base pip install log:"
         cat pip_base_install.log
         echo "Installing pyjnius separately..."
-        /usr/bin/sudo /usr/bin/python3.8 -m pip install pyjnius==1.6.1 --verbose > pip_pyjnius_install.log 2>&1
+        /usr/bin/sudo /usr/bin/python3 -m pip install pyjnius==1.6.1 --verbose > pip_pyjnius_install.log 2>&1
         echo "Listing pyjnius pip install log:"
         cat pip_pyjnius_install.log
         echo "Listing installed Python packages:"
-        /usr/bin/python3.8 -m pip list
+        /usr/bin/python3 -m pip list
         echo "Listing Python site-packages directories:"
         ls -la /usr/lib/python3/dist-packages/ /usr/local/lib/python3.8/dist-packages/ || echo "Failed to list system site-packages"
         ls -la /home/runner/.local/lib/python3.8/site-packages/ || echo "Failed to list user site-packages"
         echo "Checking Python dependencies:"
-        /usr/bin/python3.8 -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Kivy import failed"; exit 1; }
-        /usr/bin/python3.8 -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Pyjnius import failed"; exit 1; }
-        /usr/bin/python3.8 -c "import plyer; print('Plyer imported successfully')" || { echo "Plyer import failed"; exit 1; }
+        /usr/bin/python3 -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Kivy import failed"; exit 1; }
+        /usr/bin/python3 -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Pyjnius import failed"; exit 1; }
+        /usr/bin/python3 -c "import plyer; print('Plyer imported successfully')" || { echo "Plyer import failed"; exit 1; }
     - name: Clean Buildozer and python-for-android cache
       run: |
         echo "Cleaning Buildozer and python-for-android cache..."
