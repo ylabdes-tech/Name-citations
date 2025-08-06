@@ -20,12 +20,16 @@ jobs:
         echo "Current JAVA_HOME: $JAVA_HOME"
         echo "Java version:"
         /usr/bin/java -version || echo "Java not found"
+        /usr/bin/javac -version || echo "Javac not found"
         echo "Python version:"
         /usr/bin/python3 --version || echo "Python not found"
         which /usr/bin/python3
         echo "Pip version:"
         /usr/bin/pip3 --version || echo "pip3 not found"
         which /usr/bin/pip3
+        echo "Checking network connectivity to GitHub..."
+        ping -c 4 github.com || echo "Failed to ping github.com"
+        curl -I https://github.com/kivy/pyjnius.git || echo "Failed to access pyjnius repository"
         echo "Listing /bin, /usr/bin, /usr/local/bin, ~/.local/bin contents:"
         ls -la /bin /usr/bin /usr/local/bin /home/runner/.local/bin || echo "Failed to list system directories"
         echo "Checking critical commands:"
@@ -51,6 +55,7 @@ jobs:
         /usr/bin/git --version
         /bin/tar --version
         /usr/bin/java -version
+        /usr/bin/javac -version
     - name: Checkout repository
       uses: actions/checkout@v4
     - name: Set up Python
@@ -75,8 +80,8 @@ jobs:
         /usr/bin/sudo /usr/bin/python3 -m pip install git+https://github.com/kivy/pyjnius.git@1.6.1 --verbose > pip_pyjnius_install.log 2>&1
         echo "Listing pyjnius pip install log:"
         cat pip_pyjnius_install.log
-        echo "Fallback: Installing pyjnius from PyPI if source fails..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install pyjnius==1.6.1 --verbose > pip_pyjnius_pypi_install.log 2>&1 || echo "PyPI install failed, checking logs"
+        echo "Fallback: Installing pyjnius from PyPI with no binary..."
+        /usr/bin/sudo /usr/bin/python3 -m pip install pyjnius==1.6.1 --no-binary pyjnius --verbose > pip_pyjnius_pypi_install.log 2>&1 || echo "PyPI install failed, checking logs"
         echo "Listing pyjnius PyPI install log:"
         cat pip_pyjnius_pypi_install.log
         echo "Listing installed Python packages:"
