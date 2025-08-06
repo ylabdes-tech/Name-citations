@@ -8,22 +8,24 @@ jobs:
     env:
       ANDROID_HOME: /home/runner/android-sdk
       ANDROID_SDK_ROOT: /home/runner/android-sdk
-      PATH: $PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
+      PATH: /bin:/usr/bin:/usr/local/bin:$PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
     steps:
     - name: Verify environment
       run: |
         echo "Checking environment..."
-        which apt-get || echo "apt-get not found"
-        which git || echo "Git not found"
-        which tar || echo "Tar not found"
-        which python3 || echo "Python3 not found"
-        which pip || echo "Pip not found"
+        echo "Current PATH: $PATH"
+        ls /bin /usr/bin /usr/local/bin
+        /usr/bin/apt-get --version || { echo "apt-get not found"; exit 1; }
+        /usr/bin/git --version || { echo "Git not found"; exit 1; }
+        /bin/tar --version || { echo "Tar not found"; exit 1; }
+        /usr/bin/python3 --version || { echo "Python3 not found"; exit 1; }
+        /usr/bin/pip3 --version || { echo "Pip not found"; exit 1; }
     - name: Install Git and tar
       run: |
-        apt-get update
-        apt-get install -y git tar
-        git --version
-        tar --version
+        /usr/bin/apt-get update
+        /usr/bin/apt-get install -y git tar
+        /usr/bin/git --version
+        /bin/tar --version
     - name: Checkout repository
       uses: actions/checkout@v4
     - name: Set up Python
@@ -32,14 +34,14 @@ jobs:
         python-version: '3.8'
     - name: Install dependencies
       run: |
-        apt-get update
-        apt-get install -y build-essential python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip
-        pip install buildozer cython
+        /usr/bin/apt-get update
+        /usr/bin/apt-get install -y build-essential python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip
+        /usr/bin/pip3 install buildozer cython
     - name: Install Android SDK
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
-        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-        unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
+        /usr/bin/wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+        /usr/bin/unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
         mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
@@ -65,10 +67,10 @@ jobs:
       run: |
         export ANDROID_HOME=/home/runner/android-sdk
         export ANDROID_SDK_ROOT=/home/runner/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
+        export PATH=/bin:/usr/bin:/usr/local/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
         buildozer android debug
     - name: Upload APK
-      uses: actions/upload-artifact@v4
+      uses: actions/checkout@v4
       with:
         name: apk
         path: bin/*.apk
