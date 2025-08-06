@@ -21,6 +21,8 @@ jobs:
         echo "Java version:"
         /usr/bin/java -version || echo "Java not found"
         /usr/bin/javac -version || echo "Javac not found"
+        echo "Checking JNI libraries:"
+        find /usr/lib/jvm/java-8-openjdk-amd64 -name 'libjvm.so' || echo "libjvm.so not found"
         echo "Python version:"
         /usr/bin/python3 --version || echo "Python not found"
         which /usr/bin/python3
@@ -76,8 +78,10 @@ jobs:
         /usr/bin/sudo /usr/bin/python3 -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --verbose > pip_base_install.log 2>&1
         echo "Listing base pip install log:"
         cat pip_base_install.log
-        echo "Installing pyjnius from source..."
-        /usr/bin/sudo /usr/bin/python3 -m pip install git+https://github.com/kivy/pyjnius.git@1.6.1 --verbose > pip_pyjnius_install.log 2>&1
+        echo "Manually cloning pyjnius to avoid network issues..."
+        git clone --branch 1.6.1 https://github.com/kivy/pyjnius.git /tmp/pyjnius || echo "Failed to clone pyjnius repository"
+        echo "Installing pyjnius from cloned source..."
+        /usr/bin/sudo /usr/bin/python3 -m pip install /tmp/pyjnius --verbose > pip_pyjnius_install.log 2>&1
         echo "Listing pyjnius pip install log:"
         cat pip_pyjnius_install.log
         echo "Fallback: Installing pyjnius from PyPI with no binary..."
