@@ -16,7 +16,9 @@ jobs:
         echo "Diagnosing environment..."
         echo "Current PATH: $PATH"
         echo "Current PYTHONPATH: $PYTHONPATH"
+        echo "Listing /bin, /usr/bin, /usr/local/bin, ~/.local/bin contents:"
         ls -la /bin /usr/bin /usr/local/bin /home/runner/.local/bin || echo "Failed to list system directories"
+        echo "Checking critical commands:"
         /usr/bin/sudo /usr/bin/apt-get --version && echo "apt-get found" || echo "apt-get not found"
         /usr/bin/git --version && echo "git found" || echo "git not found"
         /bin/tar --version && echo "tar found" || echo "tar not found"
@@ -32,7 +34,7 @@ jobs:
     - name: Install system dependencies
       run: |
         /usr/bin/sudo /usr/bin/apt-get update
-        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-11-jdk unzip zlib1g-dev libffi-dev libssl-dev gcc g++
+        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip zlib1g-dev libffi-dev libssl-dev gcc g++ libc6-dev
         /usr/bin/git --version
         /bin/tar --version
     - name: Checkout repository
@@ -41,13 +43,21 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.8'
+    - name: Clean Python environment
+      run: |
+        echo "Cleaning Python user site-packages..."
+        /usr/bin/sudo rm -rf /home/runner/.local/lib/python3.8
     - name: Install Python dependencies
       run: |
-        /usr/bin/python3 -m pip install --user --force-reinstall buildozer cython kivy==2.2.1 pyjnius plyer
+        /usr/bin/python3 -m pip install --upgrade pip
+        /usr/bin/python3 -m pip install --user --force-reinstall --verbose buildozer cython==0.29.36 kivy==2.2.1 pyjnius==1.4.1 plyer
+        echo "Listing installed Python packages:"
         /usr/bin/python3 -m pip list
+        echo "Listing Python site-packages directory:"
         ls -la /home/runner/.local/lib/python3.8/site-packages/ || echo "Failed to list site-packages"
+        echo "Checking Python dependencies:"
         /usr/bin/python3 -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Kivy import failed"; exit 1; }
-        /usr/bin/python3 -c "import pyjnius; print('Pyjnius imported successfully')" || { echo "Pyjnius import failed"; exit 1; }
+        /usr/bin/python3 -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Pyjnius import failed"; exit 1; }
         /usr/bin/python3 -c "import plyer; print('Plyer imported successfully')" || { echo "Plyer import failed"; exit 1; }
     - name: Clean Buildozer and python-for-android cache
       run: |
@@ -56,16 +66,18 @@ jobs:
         /usr/bin/sudo rm -rf .buildozer
         /usr/bin/sudo rm -rf /home/runner/work/Name-citations/Name-citations/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a
     - name: Install Android SDK
-      # Optionally replace this step by `android-actions/setup-android@v2` for simplicity and fiabilité.
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
         /usr/bin/wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
         /usr/bin/unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
         mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        echo "Installing SDK components..."
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
+        # Create symbolic link for sdkmanager to match Buildozer's expected path
         mkdir -p $ANDROID_HOME/tools/bin
         ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
+        # Verify SDK installation
         ls -la $ANDROID_HOME/cmdline-tools/latest/bin/ || echo "cmdline-tools directory not found"
         ls -la $ANDROID_HOME/tools/bin/ || echo "tools/bin directory not found"
         ls -la $ANDROID_HOME/build-tools/30.0.3/ || echo "Build-tools directory not found"
@@ -73,11 +85,11 @@ jobs:
         if [ -f "$ANDROID_HOME/tools/bin/sdkmanager" ]; then echo "sdkmanager symlink found"; else echo "sdkmanager symlink not found"; exit 1; fi
         if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
     - name: Initialize Buildozer
-      run: /home/runner/.local/bin/buildozer init
+      run: |
+        /home/runner/.local/bin/buildozer init
     - name: Configure Buildozer
       run: |
-        cp buildozer.spec buildozer.spec.bak
-        sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius,plyer,difflib/' buildozer.spec
+        sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.4.1,plyer,difflib/' buildozer.spec
         sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
         sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
         sed -i 's/title = .*/title = Citations Positives/' buildozer.spec
@@ -95,7 +107,7 @@ jobs:
         export ANDROID_SDK_ROOT=/home/runner/android-sdk
         export PYTHONPATH=/home/runner/.local/lib/python3.8/site-packages:$PYTHONPATH
         export PATH=/bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
-        /home/runner/.local/bin/buildozer android debug --verbose
+        /home/runner/.local/bin/buildozer android debug
     - name: Upload APK
       uses: actions/upload-artifact@v4
       with:
