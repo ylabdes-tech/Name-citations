@@ -8,16 +8,23 @@ jobs:
     env:
       ANDROID_HOME: /home/runner/android-sdk
       ANDROID_SDK_ROOT: /home/runner/android-sdk
-      PATH: $PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
+      PATH: $PATH:/usr/bin:/usr/local/bin:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
     steps:
+    - name: Verify environment
+      run: |
+        echo "Checking environment..."
+        which apt-get || { echo "apt-get not found"; exit 1; }
+        which git || { echo "Git not found"; exit 1; }
+        which tar || { echo "Tar not found"; exit 1; }
+        which python3 || { echo "Python3 not found"; exit 1; }
+        which pip || { echo "Pip not found"; exit 1; }
+        echo "PATH is $PATH"
     - name: Install Git and tar
       run: |
-        apt update
-        apt install -y git tar
+        apt-get update
+        apt-get install -y git tar
         git --version
         tar --version
-        # Verify sudo (for debugging, optional)
-        which sudo || echo "sudo not found, but should not be needed"
     - name: Checkout repository
       uses: actions/checkout@v4
     - name: Set up Python
@@ -26,8 +33,8 @@ jobs:
         python-version: '3.8'
     - name: Install dependencies
       run: |
-        apt update
-        apt install -y build-essential git python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip
+        apt-get update
+        apt-get install -y build-essential python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip
         pip install buildozer cython
     - name: Install Android SDK
       run: |
@@ -38,7 +45,7 @@ jobs:
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
         # Verify SDK installation
-        ls -la $ANDROID_HOME/build-tools/30.0.3/
+        ls -la $ANDROID_HOME/build-tools/30.0.3/ || echo "Build-tools directory not found"
         if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
         if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then echo "sdkmanager found"; else echo "sdkmanager not found"; exit 1; fi
     - name: Initialize Buildozer
@@ -59,7 +66,7 @@ jobs:
       run: |
         export ANDROID_HOME=/home/runner/android-sdk
         export ANDROID_SDK_ROOT=/home/runner/android-sdk
-        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
+        export PATH=$PATH:/usr/bin:/usr/local/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
         buildozer android debug
     - name: Upload APK
       uses: actions/upload-artifact@v4
