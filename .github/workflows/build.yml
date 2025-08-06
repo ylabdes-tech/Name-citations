@@ -29,10 +29,10 @@ jobs:
         /usr/bin/sudo rm -f /var/lib/apt/lists/lock
         /usr/bin/sudo rm -f /var/cache/apt/*.bin
         /usr/bin/sudo rm -rf /var/lib/apt/lists/*
-    - name: Install Git and tar
+    - name: Install Git, tar, and additional dependencies
       run: |
         /usr/bin/sudo /usr/bin/apt-get update
-        /usr/bin/sudo /usr/bin/apt-get install -y git tar
+        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip zlib1g-dev libffi-dev libssl-dev
         /usr/bin/git --version
         /bin/tar --version
     - name: Checkout repository
@@ -41,11 +41,9 @@ jobs:
       uses: actions/setup-python@v5
       with:
         python-version: '3.8'
-    - name: Install dependencies
+    - name: Install Python dependencies
       run: |
-        /usr/bin/sudo /usr/bin/apt-get update
-        /usr/bin/sudo /usr/bin/apt-get install -y build-essential python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip
-        /usr/bin/python3 -m pip install --user buildozer cython
+        /usr/bin/python3 -m pip install --user buildozer cython kivy==2.2.1 pyjnius plyer
         echo "Listing installed Python packages:"
         /usr/bin/python3 -m pip list
         echo "Checking buildozer installation:"
@@ -54,6 +52,7 @@ jobs:
       run: |
         echo "Cleaning Buildozer cache..."
         /usr/bin/sudo rm -rf /home/runner/.buildozer
+        /usr/bin/sudo rm -rf .buildozer
     - name: Install Android SDK
       run: |
         mkdir -p $ANDROID_HOME/cmdline-tools
@@ -88,6 +87,7 @@ jobs:
         sed -i 's/orientation = .*/orientation = portrait/' buildozer.spec
         sed -i 's|#android.sdk_path =.*|android.sdk_path = /home/runner/android-sdk|' buildozer.spec
         sed -i 's|#android.ndk_path =.*|android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b|' buildozer.spec
+        sed -i 's/log_level = .*/log_level = 2/' buildozer.spec
     - name: Build APK
       run: |
         export ANDROID_HOME=/home/runner/android-sdk
