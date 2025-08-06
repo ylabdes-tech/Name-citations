@@ -12,10 +12,12 @@ jobs:
     steps:
     - name: Install Git and tar
       run: |
-        sudo apt update
-        sudo apt install -y git tar
+        apt update
+        apt install -y git tar
         git --version
         tar --version
+        # Verify sudo (for debugging, optional)
+        which sudo || echo "sudo not found, but should not be needed"
     - name: Checkout repository
       uses: actions/checkout@v4
     - name: Set up Python
@@ -24,8 +26,8 @@ jobs:
         python-version: '3.8'
     - name: Install dependencies
       run: |
-        sudo apt update
-        sudo apt install -y build-essential git python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip
+        apt update
+        apt install -y build-essential git python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip
         pip install buildozer cython
     - name: Install Android SDK
       run: |
