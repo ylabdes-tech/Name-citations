@@ -1,101 +1,116 @@
 name: Build Android APK
+
 on:
   push:
     branches: [main]
+  workflow_dispatch:
+
+env:
+  ANDROID_HOME: /home/runner/android-sdk
+  ANDROID_SDK_ROOT: /home/runner/android-sdk
+  PATH: $PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
+  BUILD_TOOLS_VERSION: '30.0.3'
+  PLATFORM_VERSION: 'android-30'
+  NDK_VERSION: '25b'
+
 jobs:
   build:
     runs-on: ubuntu-22.04
-    env:
-      ANDROID_HOME: /home/runner/android-sdk
-      ANDROID_SDK_ROOT: /home/runner/android-sdk
-      PATH: /bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
+    timeout-minutes: 30
+
     steps:
-    - name: Diagnose environment
-      run: |
-        echo "Diagnosing environment..."
-        echo "Current PATH: $PATH"
-        echo "Listing /bin, /usr/bin, /usr/local/bin, ~/.local/bin contents:"
-        ls -la /bin /usr/bin /usr/local/bin /home/runner/.local/bin || echo "Failed to list system directories"
-        echo "Checking critical commands:"
-        /usr/bin/sudo /usr/bin/apt-get --version && echo "apt-get found" || echo "apt-get not found"
-        /usr/bin/git --version && echo "git found" || echo "git not found"
-        /bin/tar --version && echo "tar found" || echo "tar not found"
-        /usr/bin/python3 --version && echo "python3 found" || echo "python3 not found"
-        /usr/bin/pip3 --version && echo "pip3 found" || echo "pip3 not found"
-        /home/runner/.local/bin/buildozer --version && echo "buildozer found" || echo "buildozer not found"
-    - name: Clean apt locks
-      run: |
-        echo "Cleaning apt locks..."
-        /usr/bin/sudo rm -f /var/lib/apt/lists/lock
-        /usr/bin/sudo rm -f /var/cache/apt/*.bin
-        /usr/bin/sudo rm -rf /var/lib/apt/lists/*
-    - name: Install Git, tar, and additional dependencies
-      run: |
-        /usr/bin/sudo /usr/bin/apt-get update
-        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip zlib1g-dev libffi-dev libssl-dev
-        /usr/bin/git --version
-        /bin/tar --version
     - name: Checkout repository
       uses: actions/checkout@v4
-    - name: Set up Python
+
+    - name: Set up Python 3.8
       uses: actions/setup-python@v5
       with:
         python-version: '3.8'
+        cache: 'pip'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y --no-install-recommends \
+          git tar unzip openjdk-8-jdk build-essential \
+          python3-dev python3-pip python3-setuptools python3-wheel \
+          zlib1g-dev libffi-dev libssl-dev \
+          libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+          ffmpeg
+
     - name: Install Python dependencies
       run: |
-        /usr/bin/python3 -m pip install --user buildozer cython kivy==2.2.1 pyjnius plyer
-        echo "Listing installed Python packages:"
-        /usr/bin/python3 -m pip list
-        echo "Checking buildozer installation:"
-        /home/runner/.local/bin/buildozer --version || { echo "buildozer not found"; exit 1; }
-    - name: Clean Buildozer cache
+        python -m pip install --upgrade pip wheel
+        pip install --user buildozer cython kivy==2.2.1 pyjnius plyer
+        echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+    - name: Set up Android SDK
       run: |
-        echo "Cleaning Buildozer cache..."
-        /usr/bin/sudo rm -rf /home/runner/.buildozer
-        /usr/bin/sudo rm -rf .buildozer
-    - name: Install Android SDK
-      run: |
-        mkdir -p $ANDROID_HOME/cmdline-tools
-        /usr/bin/wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-        /usr/bin/unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
+        mkdir -p $ANDROID_HOME
+        wget -q https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+        unzip -qq cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
         mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-        echo "Installing SDK components..."
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
-        # Create symbolic link for sdkmanager to match Buildozer's expected path
-        mkdir -p $ANDROID_HOME/tools/bin
-        ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
-        # Verify SDK installation
-        ls -la $ANDROID_HOME/cmdline-tools/latest/bin/ || echo "cmdline-tools directory not found"
-        ls -la $ANDROID_HOME/tools/bin/ || echo "tools/bin directory not found"
-        ls -la $ANDROID_HOME/build-tools/30.0.3/ || echo "Build-tools directory not found"
-        if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then echo "sdkmanager found"; else echo "sdkmanager not found"; exit 1; fi
-        if [ -f "$ANDROID_HOME/tools/bin/sdkmanager" ]; then echo "sdkmanager symlink found"; else echo "sdkmanager symlink not found"; exit 1; fi
-        if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
-    - name: Initialize Buildozer
-      run: |
-        /home/runner/.local/bin/buildozer init
+
+        echo "Installing Android SDK components..."
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME \
+          "platform-tools" \
+          "build-tools;$BUILD_TOOLS_VERSION" \
+          "platforms;$PLATFORM_VERSION" \
+          "ndk;$NDK_VERSION"
+
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+        echo "Android SDK setup complete"
+
     - name: Configure Buildozer
       run: |
-        sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius,plyer,difflib/' buildozer.spec
-        sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
-        sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
-        sed -i 's/title = .*/title = Citations Positives/' buildozer.spec
-        sed -i 's/package.name = .*/package.name = citationspositives/' buildozer.spec
-        sed -i 's/package.domain = .*/package.domain = org.example/' buildozer.spec
-        sed -i 's/version = .*/version = 1.0/' buildozer.spec
-        sed -i 's/orientation = .*/orientation = portrait/' buildozer.spec
-        sed -i 's|#android.sdk_path =.*|android.sdk_path = /home/runner/android-sdk|' buildozer.spec
-        sed -i 's|#android.ndk_path =.*|android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b|' buildozer.spec
-        sed -i 's/log_level = .*/log_level = 2/' buildozer.spec
-    - name: Build APK
+        buildozer init
+        cat <<EOT > buildozer.spec
+[app]
+title = Citations Positives
+package.name = citationspositives
+package.domain = org.example
+source.dir = .
+source.include_exts = py,png,jpg,kv,atlas,ttf,json
+version = 1.0
+requirements = python3,kivy==2.2.1,pyjnius,plyer
+orientation = portrait
+osx.python_version = 3
+osx.kivy_version = 2.2.1
+android.permissions = INTERNET,ACCESS_NETWORK_STATE
+android.api = 30
+android.minapi = 21
+android.sdk = $ANDROID_HOME
+android.ndk = $ANDROID_HOME/ndk/$NDK_VERSION
+android.build_tools = $BUILD_TOOLS_VERSION
+android.arch = armeabi-v7a
+log_level = 2
+EOT
+
+    - name: Build APK with Buildozer
       run: |
-        export ANDROID_HOME=/home/runner/android-sdk
-        export ANDROID_SDK_ROOT=/home/runner/android-sdk
-        export PATH=/bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
-        /home/runner/.local/bin/buildozer android debug
-    - name: Upload APK
+        export BUILD_PATH=$(pwd)/.buildozer
+        mkdir -p $BUILD_PATH/android/platform
+        ln -sf $ANDROID_HOME $BUILD_PATH/android/platform/android-sdk
+        ln -sf $ANDROID_HOME/ndk/$NDK_VERSION $BUILD_PATH/android/platform/android-ndk-r$NDK_VERSION
+        
+        buildozer -v android clean
+        buildozer -v android debug
+
+    - name: Upload APK artifact
       uses: actions/upload-artifact@v4
       with:
-        name: apk
+        name: app-release
         path: bin/*.apk
+        retention-days: 7
+
+    - name: Verify APK
+      if: always()
+      run: |
+        apk_path=$(ls bin/*.apk 2>/dev/null | head -1)
+        if [ -f "$apk_path" ]; then
+          echo "APK built successfully: $(ls -lh $apk_path)"
+          aapt dump badging $apk_path | grep -E 'package:|launchable-activity:'
+        else
+          echo "::error::APK file not found!"
+          exit 1
+        fi
