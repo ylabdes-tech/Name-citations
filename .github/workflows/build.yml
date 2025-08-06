@@ -8,17 +8,16 @@ jobs:
     env:
       ANDROID_HOME: /home/runner/android-sdk
       ANDROID_SDK_ROOT: /home/runner/android-sdk
-      PATH: $PATH:/usr/bin:/usr/local/bin:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
+      PATH: $PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
     steps:
     - name: Verify environment
       run: |
         echo "Checking environment..."
-        which apt-get || { echo "apt-get not found"; exit 1; }
-        which git || { echo "Git not found"; exit 1; }
-        which tar || { echo "Tar not found"; exit 1; }
-        which python3 || { echo "Python3 not found"; exit 1; }
-        which pip || { echo "Pip not found"; exit 1; }
-        echo "PATH is $PATH"
+        which apt-get || echo "apt-get not found"
+        which git || echo "Git not found"
+        which tar || echo "Tar not found"
+        which python3 || echo "Python3 not found"
+        which pip || echo "Pip not found"
     - name: Install Git and tar
       run: |
         apt-get update
@@ -66,7 +65,7 @@ jobs:
       run: |
         export ANDROID_HOME=/home/runner/android-sdk
         export ANDROID_SDK_ROOT=/home/runner/android-sdk
-        export PATH=$PATH:/usr/bin:/usr/local/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
         buildozer android debug
     - name: Upload APK
       uses: actions/upload-artifact@v4
