@@ -28,11 +28,12 @@ jobs:
         echo "ANDROID_HOME=$ANDROID_HOME" >> $GITHUB_ENV
         echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT" >> $GITHUB_ENV
         echo "PATH=$PATH" >> $GITHUB_ENV
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30"
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
-        # Verify AIDL installation
+        # Verify SDK installation
         ls -la $ANDROID_HOME/build-tools/30.0.3/
         if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
+        if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then echo "sdkmanager found"; else echo "sdkmanager not found"; exit 1; fi
     - name: Initialize Buildozer
       run: |
         buildozer init
@@ -49,6 +50,9 @@ jobs:
         sed -i 's|#android.sdk_path =.*|android.sdk_path = /home/runner/android-sdk|' buildozer.spec
     - name: Build APK
       run: |
+        export ANDROID_HOME=$HOME/android-sdk
+        export ANDROID_SDK_ROOT=$HOME/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
         buildozer android debug
     - name: Upload APK
       uses: actions/upload-artifact@v4
