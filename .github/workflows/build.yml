@@ -4,7 +4,7 @@ on:
     branches: [main]
 jobs:
   build:
-    runs-on: ubuntu-22.04  # Utiliser ubuntu-22.04 pour éviter les problèmes potentiels avec ubuntu-latest
+    runs-on: ubuntu-22.04
     env:
       ANDROID_HOME: /home/runner/android-sdk
       ANDROID_SDK_ROOT: /home/runner/android-sdk
@@ -17,15 +17,21 @@ jobs:
         echo "Listing /bin, /usr/bin, /usr/local/bin contents:"
         ls -la /bin /usr/bin /usr/local/bin || echo "Failed to list system directories"
         echo "Checking critical commands:"
-        /usr/bin/apt-get --version && echo "apt-get found" || echo "apt-get not found"
+        /usr/bin/sudo /usr/bin/apt-get --version && echo "apt-get found" || echo "apt-get not found"
         /usr/bin/git --version && echo "git found" || echo "git not found"
         /bin/tar --version && echo "tar found" || echo "tar not found"
         /usr/bin/python3 --version && echo "python3 found" || echo "python3 not found"
         /usr/bin/pip3 --version && echo "pip3 found" || echo "pip3 not found"
+    - name: Clean apt locks
+      run: |
+        echo "Cleaning apt locks..."
+        /usr/bin/sudo rm -f /var/lib/apt/lists/lock
+        /usr/bin/sudo rm -f /var/cache/apt/*.bin
+        /usr/bin/sudo rm -rf /var/lib/apt/lists/*
     - name: Install Git and tar
       run: |
-        /usr/bin/apt-get update
-        /usr/bin/apt-get install -y git tar
+        /usr/bin/sudo /usr/bin/apt-get update
+        /usr/bin/sudo /usr/bin/apt-get install -y git tar
         /usr/bin/git --version
         /bin/tar --version
     - name: Checkout repository
@@ -36,8 +42,8 @@ jobs:
         python-version: '3.8'
     - name: Install dependencies
       run: |
-        /usr/bin/apt-get update
-        /usr/bin/apt-get install -y build-essential python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip
+        /usr/bin/sudo /usr/bin/apt-get update
+        /usr/bin/sudo /usr/bin/apt-get install -y build-essential python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip
         /usr/bin/pip3 install buildozer cython
     - name: Install Android SDK
       run: |
