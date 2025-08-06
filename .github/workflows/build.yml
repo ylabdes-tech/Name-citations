@@ -17,17 +17,17 @@ jobs:
         echo "Listing /bin, /usr/bin, /usr/local/bin contents:"
         ls -la /bin /usr/bin /usr/local/bin || echo "Failed to list system directories"
         echo "Checking critical commands:"
-        /usr/bin/sudo /usr/bin/apt-get --version && echo "apt-get found" || echo "apt-get not found"
+        /usr/bin/sudo --version && echo "sudo found" || echo "sudo not found"
+        /usr/bin/apt-get --version && echo "apt-get found" || echo "apt-get not found"
         /usr/bin/git --version && echo "git found" || echo "git not found"
         /bin/tar --version && echo "tar found" || echo "tar not found"
         /usr/bin/python3 --version && echo "python3 found" || echo "python3 not found"
         /usr/bin/pip3 --version && echo "pip3 found" || echo "pip3 not found"
     - name: Clean apt locks
       run: |
-        echo "Cleaning apt locks..."
-        /usr/bin/sudo rm -f /var/lib/apt/lists/lock
-        /usr/bin/sudo rm -f /var/cache/apt/*.bin
-        /usr/bin/sudo rm -rf /var/lib/apt/lists/*
+        /usr/bin/sudo rm -f /var/lib/apt/lists/lock /var/cache/apt/pkgcache.bin /var/cache/apt/srcpkgcache.bin
+        /usr/bin/sudo rm -f /var/lib/dpkg/lock-frontend /var/lib/dpkg/lock
+        /usr/bin/sudo dpkg --configure -a
     - name: Install Git and tar
       run: |
         /usr/bin/sudo /usr/bin/apt-get update
