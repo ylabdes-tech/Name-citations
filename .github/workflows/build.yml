@@ -79,11 +79,16 @@ jobs:
       - name: Installer les dépendances Python
         run: |
           source /home/runner/venv/bin/activate
-          echo "Installation des dépendances Python..."
-          python -m pip install cython==0.29.36 buildozer kivy==2.2.1 plyer pyjnius==1.4.0 --no-cache-dir --verbose > pip_install.log 2>&1
+          echo "Installation des dépendances Python de base..."
+          python -m pip install cython==0.29.36 buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1
+          echo "Installation de pyjnius..."
+          python -m pip install pyjnius==1.4.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_install.log 2>&1 || { echo "Échec de l'installation de pyjnius"; cat pip_pyjnius_install.log; exit 1; }
           echo "Liste des paquets Python installés :"
           python -m pip list
+          echo "Vérification des chemins Python :"
+          python -m site
           echo "Vérification des dépendances Python :"
+          python -c "import cython; print('Cython version:', cython.__version__)" || { echo "Échec de l'importation de Cython"; exit 1; }
           python -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Échec de l'importation de Kivy"; exit 1; }
           python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation de Pyjnius"; exit 1; }
           python -c "import plyer; print('Plyer importé avec succès')" || { echo "Échec de l'importation de Plyer"; exit 1; }
@@ -100,11 +105,16 @@ jobs:
           python3.8 -m venv /home/runner/venv3.8
           source /home/runner/venv3.8/bin/activate
           python -m pip install --upgrade pip
-          echo "Installation des dépendances Python avec Python 3.8..."
-          python -m pip install cython==0.29.36 buildozer kivy==2.2.1 plyer pyjnius==1.4.0 --no-cache-dir --verbose > pip_install_3.8.log 2>&1
+          echo "Installation des dépendances Python de base avec Python 3.8..."
+          python -m pip install cython==0.29.36 buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install_3.8.log 2>&1
+          echo "Installation de pyjnius avec Python 3.8..."
+          python -m pip install pyjnius==1.4.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_install_3.8.log 2>&1 || { echo "Échec de l'installation de pyjnius"; cat pip_pyjnius_install_3.8.log; exit 1; }
           echo "Liste des paquets Python installés (Python 3.8) :"
           python -m pip list
+          echo "Vérification des chemins Python (Python 3.8) :"
+          python -m site
           echo "Vérification des dépendances Python (Python 3.8) :"
+          python -c "import cython; print('Cython version:', cython.__version__)" || { echo "Échec de l'importation de Cython"; exit 1; }
           python -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Échec de l'importation de Kivy"; exit 1; }
           python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation de Pyjnius"; exit 1; }
           python -c "import plyer; print('Plyer importé avec succès')" || { echo "Échec de l'importation de Plyer"; exit 1; }
