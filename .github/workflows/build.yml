@@ -76,8 +76,10 @@ jobs:
       - name: Installer les dépendances Python
         run: |
           source /home/runner/venv/bin/activate
+          echo "Installation de Cython..."
+          python -m pip install cython==0.29.36 --no-cache-dir --verbose > pip_cython_install.log 2>&1 || { echo "Échec de l'installation de Cython"; cat pip_cython_install.log; exit 1; }
           echo "Installation des dépendances Python de base..."
-          python -m pip install cython==0.29.36 buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1 || { echo "Échec de l'installation des dépendances de base"; cat pip_base_install.log; exit 1; }
+          python -m pip install buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1 || { echo "Échec de l'installation des dépendances de base"; cat pip_base_install.log; exit 1; }
           echo "Installation de pyjnius..."
           export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
           export LD_LIBRARY_PATH=/usr/lib/jvm/java-11-openjdk-amd64/lib/server:/usr/lib
