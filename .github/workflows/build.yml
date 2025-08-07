@@ -46,6 +46,7 @@ jobs:
           echo "Vérification des bibliothèques JNI :"
           find /usr/lib/jvm/java-11-openjdk-amd64 -name 'libjvm.so' || { echo "libjvm.so introuvable"; exit 1; }
           find /usr/lib -name 'libffi.so' || { echo "libffi.so introuvable"; exit 1; }
+          find /usr/lib/jvm/java-11-openjdk-amd64/include -name 'jni.h' || { echo "jni.h introuvable"; exit 1; }
       - name: Vérifier les installations Python et Java
         run: |
           echo "Vérification de Python 3.9 :"
@@ -73,14 +74,14 @@ jobs:
           python3.9 -m venv /home/runner/venv
           source /home/runner/venv/bin/activate
           echo "Mise à jour de pip..."
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip==24.2
           echo "Version actuelle de pip :"
           python -m pip --version
       - name: Installer les dépendances Python
         run: |
           source /home/runner/venv/bin/activate
           echo "Installation des dépendances Python de base..."
-          python -m pip install cython==0.29.36 buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1
+          python -m pip install cython==0.29.24 buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1
           echo "Installation de pyjnius..."
           python -m pip install pyjnius==1.4.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_install.log 2>&1 || { echo "Échec de l'installation de pyjnius"; cat pip_pyjnius_install.log; exit 1; }
           echo "Liste des paquets Python installés :"
@@ -104,9 +105,10 @@ jobs:
           fi
           python3.8 -m venv /home/runner/venv3.8
           source /home/runner/venv3.8/bin/activate
-          python -m pip install --upgrade pip
+          echo "Installation de pip compatible avec Python 3.8..."
+          python -m pip install --upgrade pip==24.2
           echo "Installation des dépendances Python de base avec Python 3.8..."
-          python -m pip install cython==0.29.36 buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install_3.8.log 2>&1
+          python -m pip install cython==0.29.24 buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install_3.8.log 2>&1
           echo "Installation de pyjnius avec Python 3.8..."
           python -m pip install pyjnius==1.4.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_install_3.8.log 2>&1 || { echo "Échec de l'installation de pyjnius"; cat pip_pyjnius_install_3.8.log; exit 1; }
           echo "Liste des paquets Python installés (Python 3.8) :"
