@@ -54,6 +54,8 @@ jobs:
           echo "Vérification de Java :"
           echo "JAVA_HOME est défini à $JAVA_HOME"
           $JAVA_HOME/bin/java -version || { echo "Échec de l'installation de Java"; exit 1; }
+          echo "Vérification des en-têtes JNI :"
+          ls -la /usr/lib/jvm/java-11-openjdk-amd64/include/jni.h || { echo "jni.h introuvable"; exit 1; }
       - name: Checkout du dépôt
         uses: actions/checkout@v4
       - name: Configurer Python
@@ -70,14 +72,14 @@ jobs:
           python3.9 -m venv /home/runner/venv
           source /home/runner/venv/bin/activate
           echo "Mise à jour de pip..."
-          python -m pip install --upgrade pip
+          python -m pip install --upgrade pip==24.2
           echo "Version actuelle de pip :"
           python -m pip --version
       - name: Installer les dépendances Python
         run: |
           source /home/runner/venv/bin/activate
           echo "Installation de Cython..."
-          python -m pip install cython==0.29.36 --no-cache-dir --verbose > pip_cython_install.log 2>&1 || { echo "Échec de l'installation de Cython"; cat pip_cython_install.log; exit 1; }
+          python -m pip install cython==0.29.21 --no-cache-dir --verbose > pip_cython_install.log 2>&1 || { echo "Échec de l'installation de Cython"; cat pip_cython_install.log; exit 1; }
           echo "Installation des dépendances Python de base..."
           python -m pip install buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1 || { echo "Échec de l'installation des dépendances de base"; cat pip_base_install.log; exit 1; }
           echo "Installation de pyjnius..."
@@ -85,7 +87,7 @@ jobs:
           export LD_LIBRARY_PATH=/usr/lib/jvm/java-11-openjdk-amd64/lib/server:/usr/lib
           export CFLAGS="-I/usr/lib/jvm/java-11-openjdk-amd64/include -I/usr/lib/jvm/java-11-openjdk-amd64/include/linux"
           export LDFLAGS="-L/usr/lib/jvm/java-11-openjdk-amd64/lib/server -ljvm"
-          python -m pip install "pyjnius>=1.5.0" --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_install.log 2>&1 || { echo "Échec de l'installation de pyjnius"; cat pip_pyjnius_install.log; exit 1; }
+          python -m pip install pyjnius==1.4.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_install.log 2>&1 || { echo "Échec de l'installation de pyjnius"; cat pip_pyjnius_install.log; exit 1; }
           echo "Vérification immédiate de pyjnius..."
           python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius"; exit 1; }
           echo "Liste des paquets Python installés :"
@@ -105,7 +107,7 @@ jobs:
           echo "Génération du fichier buildozer.spec..."
           buildozer init || { echo "Échec de la génération de buildozer.spec"; exit 1; }
           echo "Configuration du fichier buildozer.spec..."
-          sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius>=1.5.0,plyer,difflib/' buildozer.spec
+          sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.4.0,plyer,difflib/' buildozer.spec
           sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
           sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
           sed -i 's/title = .*/title = Citations Positives/' buildozer.spec
