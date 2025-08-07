@@ -29,23 +29,18 @@ jobs:
         find /usr/lib/jvm/java-8-openjdk-amd64 -name 'libjvm.so' || echo "libjvm.so not found"
         find /usr/lib -name 'libffi.so' || echo "libffi.so not found"
         echo "Python 3.8 version:"
-        /usr/bin/python3 --version || echo "Python 3.8 not found"
-        which /usr/bin/python3
+        /usr/bin/python3.8 --version || echo "Python 3.8 not found"
+        which /usr/bin/python3.8
         echo "Pip version for Python 3.8:"
-        /usr/bin/pip3 --version || echo "pip3 not found"
+        /usr/bin/python3.8 -m pip --version || echo "pip for Python 3.8 not found"
         which /usr/bin/pip3
         echo "Python 3.9 version:"
         /usr/bin/python3.9 --version || echo "Python 3.9 not found"
         which /usr/bin/python3.9
         echo "Checking ensurepip for Python 3.9:"
         /usr/bin/python3.9 -m ensurepip --version || echo "ensurepip not found for Python 3.9"
-        echo "Python 3.11 version:"
-        /usr/bin/python3.11 --version || echo "Python 3.11 not found"
-        which /usr/bin/python3.11
-        echo "Checking ensurepip for Python 3.11:"
-        /usr/bin/python3.11 -m ensurepip --version || echo "ensurepip not found for Python 3.11"
         echo "Checking Python site paths for Python 3.8:"
-        /usr/bin/python3 -m site
+        /usr/bin/python3.8 -m site
         echo "Checking network connectivity to GitHub..."
         ping -c 4 github.com || echo "Failed to ping github.com"
         curl -I https://github.com/kivy/pyjnius.git || echo "Failed to access pyjnius repository"
@@ -61,15 +56,15 @@ jobs:
         /usr/bin/sudo rm -f /var/lib/apt/lists/lock
         /usr/bin/sudo rm -f /var/cache/apt/*.bin
         /usr/bin/sudo rm -rf /var/lib/apt/lists/*
-    - name: Add deadsnakes PPA for python3.8-dev, python3.9, and python3.11
+    - name: Add deadsnakes PPA for python3.8-dev and python3.9
       run: |
         echo "Adding deadsnakes PPA..."
-        for i in {1..6}; do
+        for i in {1..8}; do
           /usr/bin/sudo /usr/bin/apt-get update && \
           /usr/bin/sudo /usr/bin/apt-get install -y software-properties-common && \
           /usr/bin/sudo add-apt-repository ppa:deadsnakes/ppa -y && \
           /usr/bin/sudo /usr/bin/apt-get update && break || \
-          echo "PPA setup attempt $i failed, retrying..."; sleep 15
+          echo "PPA setup attempt $i failed, retrying..."; sleep 20
         done
         echo "Listing available Python 3.9 packages:"
         /usr/bin/sudo /usr/bin/apt-cache search python3.9 || echo "Failed to search for python3.9 packages"
@@ -77,22 +72,16 @@ jobs:
         /usr/bin/sudo /usr/bin/apt-cache policy python3.9 || echo "Failed to check python3.9 policy"
         echo "Checking available versions for python3.9:"
         /usr/bin/sudo /usr/bin/apt-cache madison python3.9 || echo "Failed to check python3.9 versions"
-        echo "Listing available Python 3.11 packages:"
-        /usr/bin/sudo /usr/bin/apt-cache search python3.11 || echo "Failed to search for python3.11 packages"
-        echo "Checking PPA policy for python3.11:"
-        /usr/bin/sudo /usr/bin/apt-cache policy python3.11 || echo "Failed to check python3.11 policy"
-        echo "Checking available versions for python3.11:"
-        /usr/bin/sudo /usr/bin/apt-cache madison python3.11 || echo "Failed to check python3.11 versions"
     - name: Install system dependencies
       run: |
         echo "Installing system dependencies..."
-        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev python3.8 python3.8-dev python3.9 python3.9-dev python3.9-venv python3.9-distutils python3.11 python3.11-dev python3.11-venv python3.11-distutils python3-pip ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libffi8 libssl-dev gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
+        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev python3.8 python3.8-dev python3.8-venv python3.9 python3.9-dev python3.9-venv python3.9-distutils python3-pip ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libffi8 libssl-dev gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
+        echo "Verifying Python 3.8 installation:"
+        /usr/bin/python3.8 --version || { echo "Python 3.8 installation failed"; exit 1; }
+        /usr/bin/python3.8 -m ensurepip --version || echo "ensurepip not found for Python 3.8"
         echo "Verifying Python 3.9 installation:"
         /usr/bin/python3.9 --version || { echo "Python 3.9 installation failed"; exit 1; }
         /usr/bin/python3.9 -m ensurepip --version || echo "ensurepip not found for Python 3.9"
-        echo "Verifying Python 3.11 installation:"
-        /usr/bin/python3.11 --version || { echo "Python 3.11 installation failed"; exit 1; }
-        /usr/bin/python3.11 -m ensurepip --version || echo "ensurepip not found for Python 3.11"
         /usr/bin/git --version
         /bin/tar --version
         /usr/bin/java -version
@@ -110,17 +99,17 @@ jobs:
     - name: Create and activate virtual environment for Python 3.8
       run: |
         echo "Creating virtual environment for Python 3.8..."
-        /usr/bin/python3 -m venv /home/runner/venv
+        /usr/bin/python3.8 -m venv /home/runner/venv
         source /home/runner/venv/bin/activate
         echo "Upgrading pip in virtual environment..."
-        pip install --upgrade pip
+        python -m pip install --upgrade pip
         echo "Current pip version in virtual environment:"
-        pip --version
+        python -m pip --version
     - name: Install Python dependencies
       run: |
         source /home/runner/venv/bin/activate
         echo "Installing base Python dependencies..."
-        pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1
+        python -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1
         echo "Listing base pip install log:"
         cat pip_base_install.log
         echo "Manually cloning pyjnius with retry..."
@@ -132,23 +121,23 @@ jobs:
         ls -la /tmp/pyjnius/setup.py || echo "Cannot list setup.py"
         /usr/bin/sudo chmod -R 777 /tmp/pyjnius || echo "Failed to set permissions on /tmp/pyjnius"
         echo "Installing pyjnius from PyPI (1.6.1)..."
-        pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install.log 2>&1 || echo "PyPI install (1.6.1) failed"
+        python -m pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install.log 2>&1 || echo "PyPI install (1.6.1) failed"
         echo "Listing pyjnius PyPI install log (1.6.1):"
         cat pip_pyjnius_pypi_install.log
         echo "Fallback: Installing pyjnius from PyPI (1.5.0)..."
-        pip install pyjnius==1.5.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_1_5_0_install.log 2>&1 || echo "PyPI install (1.5.0) failed"
+        python -m pip install pyjnius==1.5.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_1_5_0_install.log 2>&1 || echo "PyPI install (1.5.0) failed"
         echo "Listing pyjnius PyPI install log (1.5.0):"
         cat pip_pyjnius_1_5_0_install.log
         echo "Listing installed Python packages:"
-        pip list
+        python -m pip list
         echo "Listing Python site-packages directories:"
         ls -la /home/runner/venv/lib/python3.8/site-packages/ || echo "Failed to list virtualenv site-packages"
         echo "Checking Python site paths:"
-        python3 -m site
+        python -m site
         echo "Checking Python dependencies:"
-        python3 -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Kivy import failed"; exit 1; }
-        python3 -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Pyjnius import failed"; exit 1; }
-        python3 -c "import plyer; print('Plyer imported successfully')" || { echo "Plyer import failed"; exit 1; }
+        python -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Kivy import failed"; exit 1; }
+        python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Pyjnius import failed"; exit 1; }
+        python -c "import plyer; print('Plyer imported successfully')" || { echo "Plyer import failed"; exit 1; }
     - name: Fallback to Python 3.9 if Python 3.8 fails
       if: failure()
       run: |
@@ -162,61 +151,27 @@ jobs:
         /usr/bin/python3.9 -m venv /home/runner/venv3.9
         source /home/runner/venv3.9/bin/activate
         echo "Current Python 3.9 version:"
-        python3 --version
+        python --version
         echo "Current pip version for Python 3.9:"
-        pip --version
+        python -m pip --version
         echo "Installing base Python dependencies with Python 3.9..."
-        pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install_3.9.log 2>&1
+        python -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install_3.9.log 2>&1
         echo "Listing base pip install log (Python 3.9):"
         cat pip_base_install_3.9.log
         echo "Installing pyjnius from PyPI (1.6.1) with Python 3.9..."
-        pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install_3.9.log 2>&1 || echo "PyPI install (1.6.1) failed (Python 3.9)"
+        python -m pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install_3.9.log 2>&1 || echo "PyPI install (1.6.1) failed (Python 3.9)"
         echo "Listing pyjnius PyPI install log (1.6.1, Python 3.9):"
         cat pip_pyjnius_pypi_install_3.9.log
         echo "Fallback: Installing pyjnius from PyPI (1.5.0) with Python 3.9..."
-        pip install pyjnius==1.5.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_1_5_0_install_3.9.log 2>&1 || echo "PyPI install (1.5.0) failed (Python 3.9)"
+        python -m pip install pyjnius==1.5.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_1_5_0_install_3.9.log 2>&1 || echo "PyPI install (1.5.0) failed (Python 3.9)"
         echo "Listing pyjnius PyPI install log (1.5.0, Python 3.9):"
         cat pip_pyjnius_1_5_0_install_3.9.log
         echo "Listing installed Python packages (Python 3.9):"
-        pip list
+        python -m pip list
         echo "Listing Python site-packages directories:"
         ls -la /home/runner/venv3.9/lib/python3.9/site-packages/ || echo "Failed to list virtualenv site-packages"
         echo "Checking Python site paths:"
-        python3 -m site
-    - name: Fallback to Python 3.11 if Python 3.9 fails
-      if: failure()
-      run: |
-        echo "Python 3.9 failed, trying Python 3.11..."
-        /usr/bin/python3.11 --version || { echo "Python 3.11 not installed"; exit 1; }
-        echo "Checking ensurepip for Python 3.11:"
-        /usr/bin/python3.11 -m ensurepip --version || { echo "ensurepip not found for Python 3.11"; exit 1; }
-        /usr/bin/sudo /usr/bin/python3.11 -m ensurepip --upgrade
-        /usr/bin/sudo /usr/bin/python3.11 -m pip install --upgrade pip
-        echo "Creating virtual environment for Python 3.11..."
-        /usr/bin/python3.11 -m venv /home/runner/venv3.11
-        source /home/runner/venv3.11/bin/activate
-        echo "Current Python 3.11 version:"
-        python3 --version
-        echo "Current pip version for Python 3.11:"
-        pip --version
-        echo "Installing base Python dependencies with Python 3.11..."
-        pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install_3.11.log 2>&1
-        echo "Listing base pip install log (Python 3.11):"
-        cat pip_base_install_3.11.log
-        echo "Installing pyjnius from PyPI (1.6.1) with Python 3.11..."
-        pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install_3.11.log 2>&1 || echo "PyPI install (1.6.1) failed (Python 3.11)"
-        echo "Listing pyjnius PyPI install log (1.6.1, Python 3.11):"
-        cat pip_pyjnius_pypi_install_3.11.log
-        echo "Fallback: Installing pyjnius from PyPI (1.5.0) with Python 3.11..."
-        pip install pyjnius==1.5.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_1_5_0_install_3.11.log 2>&1 || echo "PyPI install (1.5.0) failed (Python 3.11)"
-        echo "Listing pyjnius PyPI install log (1.5.0, Python 3.11):"
-        cat pip_pyjnius_1_5_0_install_3.11.log
-        echo "Listing installed Python packages (Python 3.11):"
-        pip list
-        echo "Listing Python site-packages directories:"
-        ls -la /home/runner/venv3.11/lib/python3.11/site-packages/ || echo "Failed to list virtualenv site-packages"
-        echo "Checking Python site paths:"
-        python3 -m site
+        python -m site
     - name: Clean Buildozer and python-for-android cache
       run: |
         source /home/runner/venv/bin/activate
@@ -233,10 +188,8 @@ jobs:
         echo "Installing SDK components..."
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
         yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
-        # Create symbolic link for sdkmanager to match Buildozer's expected path
         mkdir -p $ANDROID_HOME/tools/bin
         ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
-        # Verify SDK installation
         ls -la $ANDROID_HOME/cmdline-tools/latest/bin/ || echo "cmdline-tools directory not found"
         ls -la $ANDROID_HOME/tools/bin/ || echo "tools/bin directory not found"
         ls -la $ANDROID_HOME/build-tools/30.0.3/ || echo "Build-tools directory not found"
