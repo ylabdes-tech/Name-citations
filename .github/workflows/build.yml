@@ -14,220 +14,217 @@ jobs:
       LDFLAGS: -L/usr/lib/jvm/java-8-openjdk-amd64/lib/server -ljvm
       PATH: /bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
     steps:
-    - name: Diagnose environment
-      run: |
-        echo "Diagnosing environment..."
-        echo "Current PATH: $PATH"
-        echo "Current JAVA_HOME: $JAVA_HOME"
-        echo "Current LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
-        echo "Current CFLAGS: $CFLAGS"
-        echo "Current LDFLAGS: $LDFLAGS"
-        echo "Java version:"
-        /usr/bin/java -version || echo "Java not found"
-        /usr/bin/javac -version || echo "Javac not found"
-        echo "Checking JNI libraries:"
-        find /usr/lib/jvm/java-8-openjdk-amd64 -name 'libjvm.so' || echo "libjvm.so not found"
-        find /usr/lib -name 'libffi.so' || echo "libffi.so not found"
-        echo "Python 3.8 version:"
-        /usr/bin/python3.8 --version || echo "Python 3.8 not found"
-        which /usr/bin/python3.8
-        echo "Pip version for Python 3.8:"
-        /usr/bin/python3.8 -m pip --version || echo "pip for Python 3.8 not found"
-        which /usr/bin/pip3
-        echo "Python 3.9 version:"
-        /usr/bin/python3.9 --version || echo "Python 3.9 not found"
-        which /usr/bin/python3.9
-        echo "Checking ensurepip for Python 3.9:"
-        /usr/bin/python3.9 -m ensurepip --version || echo "ensurepip not found for Python 3.9"
-        echo "Checking Python site paths for Python 3.8:"
-        /usr/bin/python3.8 -m site
-        echo "Checking network connectivity to GitHub..."
-        ping -c 4 github.com || echo "Failed to ping github.com"
-        curl -I https://github.com/kivy/pyjnius.git || echo "Failed to access pyjnius repository"
-        echo "Listing /bin, /usr/bin, /usr/local/bin, ~/.local/bin contents:"
-        ls -la /bin /usr/bin /usr/local/bin /home/runner/.local/bin || echo "Failed to list system directories"
-        echo "Checking critical commands:"
-        /usr/bin/sudo /usr/bin/apt-get --version && echo "apt-get found" || echo "apt-get not found"
-        /usr/bin/git --version && echo "git found" || echo "git not found"
-        /bin/tar --version && echo "tar found" || echo "tar not found"
-    - name: Clean apt locks
-      run: |
-        echo "Cleaning apt locks..."
-        /usr/bin/sudo rm -f /var/lib/apt/lists/lock
-        /usr/bin/sudo rm -f /var/cache/apt/*.bin
-        /usr/bin/sudo rm -rf /var/lib/apt/lists/*
-    - name: Add deadsnakes PPA for python3.8-dev and python3.9
-      run: |
-        echo "Adding deadsnakes PPA..."
-        for i in {1..8}; do
-          /usr/bin/sudo /usr/bin/apt-get update && \
-          /usr/bin/sudo /usr/bin/apt-get install -y software-properties-common && \
-          /usr/bin/sudo add-apt-repository ppa:deadsnakes/ppa -y && \
-          /usr/bin/sudo /usr/bin/apt-get update && break || \
-          echo "PPA setup attempt $i failed, retrying..."; sleep 20
-        done
-        echo "Listing available Python 3.9 packages:"
-        /usr/bin/sudo /usr/bin/apt-cache search python3.9 || echo "Failed to search for python3.9 packages"
-        echo "Checking PPA policy for python3.9:"
-        /usr/bin/sudo /usr/bin/apt-cache policy python3.9 || echo "Failed to check python3.9 policy"
-        echo "Checking available versions for python3.9:"
-        /usr/bin/sudo /usr/bin/apt-cache madison python3.9 || echo "Failed to check python3.9 versions"
-    - name: Install system dependencies
-      run: |
-        echo "Installing system dependencies..."
-        /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev python3.8 python3.8-dev python3.8-venv python3.9 python3.9-dev python3.9-venv python3.9-distutils python3-pip ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libffi8 libssl-dev gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
-        echo "Verifying Python 3.8 installation:"
-        /usr/bin/python3.8 --version || { echo "Python 3.8 installation failed"; exit 1; }
-        /usr/bin/python3.8 -m ensurepip --version || echo "ensurepip not found for Python 3.8"
-        echo "Verifying Python 3.9 installation:"
-        /usr/bin/python3.9 --version || { echo "Python 3.9 installation failed"; exit 1; }
-        /usr/bin/python3.9 -m ensurepip --version || echo "ensurepip not found for Python 3.9"
-        /usr/bin/git --version
-        /bin/tar --version
-        /usr/bin/java -version
-        /usr/bin/javac -version
-    - name: Checkout repository
-      uses: actions/checkout@v4
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.8'
-    - name: Clean Python environment
-      run: |
-        echo "Cleaning Python user environment..."
-        /usr/bin/sudo rm -rf /home/runner/.local /home/runner/.kivy /home/runner/.cache/pip
-    - name: Create and activate virtual environment for Python 3.8
-      run: |
-        echo "Creating virtual environment for Python 3.8..."
-        /usr/bin/python3.8 -m venv /home/runner/venv
-        source /home/runner/venv/bin/activate
-        echo "Upgrading pip in virtual environment..."
-        python -m pip install --upgrade pip
-        echo "Current pip version in virtual environment:"
-        python -m pip --version
-    - name: Install Python dependencies
-      run: |
-        source /home/runner/venv/bin/activate
-        echo "Installing base Python dependencies..."
-        python -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1
-        echo "Listing base pip install log:"
-        cat pip_base_install.log
-        echo "Manually cloning pyjnius with retry..."
-        for i in {1..3}; do /usr/bin/git clone --branch 1.6.1 https://github.com/kivy/pyjnius.git /tmp/pyjnius && break || echo "Clone attempt $i failed, retrying..."; sleep 5; done
-        echo "Listing /tmp/pyjnius contents:"
-        ls -la /tmp/pyjnius || echo "No files found in /tmp/pyjnius"
-        if [ -f "/tmp/pyjnius/setup.py" ]; then echo "setup.py found in /tmp/pyjnius"; else echo "setup.py not found in /tmp/pyjnius"; exit 1; fi
-        echo "Checking /tmp/pyjnius permissions:"
-        ls -la /tmp/pyjnius/setup.py || echo "Cannot list setup.py"
-        /usr/bin/sudo chmod -R 777 /tmp/pyjnius || echo "Failed to set permissions on /tmp/pyjnius"
-        echo "Installing pyjnius from PyPI (1.6.1)..."
-        python -m pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install.log 2>&1 || echo "PyPI install (1.6.1) failed"
-        echo "Listing pyjnius PyPI install log (1.6.1):"
-        cat pip_pyjnius_pypi_install.log
-        echo "Fallback: Installing pyjnius from PyPI (1.5.0)..."
-        python -m pip install pyjnius==1.5.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_1_5_0_install.log 2>&1 || echo "PyPI install (1.5.0) failed"
-        echo "Listing pyjnius PyPI install log (1.5.0):"
-        cat pip_pyjnius_1_5_0_install.log
-        echo "Listing installed Python packages:"
-        python -m pip list
-        echo "Listing Python site-packages directories:"
-        ls -la /home/runner/venv/lib/python3.8/site-packages/ || echo "Failed to list virtualenv site-packages"
-        echo "Checking Python site paths:"
-        python -m site
-        echo "Checking Python dependencies:"
-        python -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Kivy import failed"; exit 1; }
-        python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Pyjnius import failed"; exit 1; }
-        python -c "import plyer; print('Plyer imported successfully')" || { echo "Plyer import failed"; exit 1; }
-    - name: Fallback to Python 3.9 if Python 3.8 fails
-      if: failure()
-      run: |
-        echo "Python 3.8 failed, trying Python 3.9..."
-        /usr/bin/python3.9 --version || { echo "Python 3.9 not installed"; exit 1; }
-        echo "Checking ensurepip for Python 3.9:"
-        /usr/bin/python3.9 -m ensurepip --version || { echo "ensurepip not found for Python 3.9"; exit 1; }
-        /usr/bin/sudo /usr/bin/python3.9 -m ensurepip --upgrade
-        /usr/bin/sudo /usr/bin/python3.9 -m pip install --upgrade pip
-        echo "Creating virtual environment for Python 3.9..."
-        /usr/bin/python3.9 -m venv /home/runner/venv3.9
-        source /home/runner/venv3.9/bin/activate
-        echo "Current Python 3.9 version:"
-        python --version
-        echo "Current pip version for Python 3.9:"
-        python -m pip --version
-        echo "Installing base Python dependencies with Python 3.9..."
-        python -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install_3.9.log 2>&1
-        echo "Listing base pip install log (Python 3.9):"
-        cat pip_base_install_3.9.log
-        echo "Installing pyjnius from PyPI (1.6.1) with Python 3.9..."
-        python -m pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install_3.9.log 2>&1 || echo "PyPI install (1.6.1) failed (Python 3.9)"
-        echo "Listing pyjnius PyPI install log (1.6.1, Python 3.9):"
-        cat pip_pyjnius_pypi_install_3.9.log
-        echo "Fallback: Installing pyjnius from PyPI (1.5.0) with Python 3.9..."
-        python -m pip install pyjnius==1.5.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_1_5_0_install_3.9.log 2>&1 || echo "PyPI install (1.5.0) failed (Python 3.9)"
-        echo "Listing pyjnius PyPI install log (1.5.0, Python 3.9):"
-        cat pip_pyjnius_1_5_0_install_3.9.log
-        echo "Listing installed Python packages (Python 3.9):"
-        python -m pip list
-        echo "Listing Python site-packages directories:"
-        ls -la /home/runner/venv3.9/lib/python3.9/site-packages/ || echo "Failed to list virtualenv site-packages"
-        echo "Checking Python site paths:"
-        python -m site
-    - name: Clean Buildozer and python-for-android cache
-      run: |
-        source /home/runner/venv/bin/activate
-        echo "Cleaning Buildozer and python-for-android cache..."
-        /usr/bin/sudo rm -rf /home/runner/.buildozer
-        /usr/bin/sudo rm -rf .buildozer
-        /usr/bin/sudo rm -rf /home/runner/work/Name-citations/Name-citations/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a
-    - name: Install Android SDK
-      run: |
-        mkdir -p $ANDROID_HOME/cmdline-tools
-        /usr/bin/wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-        /usr/bin/unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
-        mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-        echo "Installing SDK components..."
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
-        mkdir -p $ANDROID_HOME/tools/bin
-        ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
-        ls -la $ANDROID_HOME/cmdline-tools/latest/bin/ || echo "cmdline-tools directory not found"
-        ls -la $ANDROID_HOME/tools/bin/ || echo "tools/bin directory not found"
-        ls -la $ANDROID_HOME/build-tools/30.0.3/ || echo "Build-tools directory not found"
-        if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then echo "sdkmanager found"; else echo "sdkmanager not found"; exit 1; fi
-        if [ -f "$ANDROID_HOME/tools/bin/sdkmanager" ]; then echo "sdkmanager symlink found"; else echo "sdkmanager symlink not found"; exit 1; fi
-        if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
-    - name: Initialize Buildozer
-      run: |
-        source /home/runner/venv/bin/activate
-        buildozer init
-    - name: Configure Buildozer
-      run: |
-        source /home/runner/venv/bin/activate
-        sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.6.1,plyer,difflib/' buildozer.spec
-        sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
-        sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
-        sed -i 's/title = .*/title = Citations Positives/' buildozer.spec
-        sed -i 's/package.name = .*/package.name = citationspositives/' buildozer.spec
-        sed -i 's/package.domain = .*/package.domain = org.example/' buildozer.spec
-        sed -i 's/version = .*/version = 1.0/' buildozer.spec
-        sed -i 's/orientation = .*/orientation = portrait/' buildozer.spec
-        sed -i 's|#android.sdk_path =.*|android.sdk_path = /home/runner/android-sdk|' buildozer.spec
-        sed -i 's|#android.ndk_path =.*|android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b|' buildozer.spec
-        sed -i 's/log_level = .*/log_level = 2/' buildozer.spec
-        sed -i 's/android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
-    - name: Build APK
-      run: |
-        source /home/runner/venv/bin/activate
-        export ANDROID_HOME=/home/runner/android-sdk
-        export ANDROID_SDK_ROOT=/home/runner/android-sdk
-        export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-        export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/lib/server:/usr/lib
-        export CFLAGS="-I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux"
-        export LDFLAGS="-L/usr/lib/jvm/java-8-openjdk-amd64/lib/server -ljvm"
-        export PATH=/bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
-        buildozer android debug
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: apk
-        path: bin/*.apk
+      - name: Clean apt locks
+        run: |
+          echo "Cleaning apt locks..."
+          /usr/bin/sudo rm -f /var/lib/apt/lists/lock
+          /usr/bin/sudo rm -f /var/cache/apt/*.bin
+          /usr/bin/sudo rm -rf /var/lib/apt/lists/*
+      - name: Add deadsnakes PPA for python3.8-dev and python3.9
+        run: |
+          echo "Adding deadsnakes PPA..."
+          for i in {1..10}; do
+            /usr/bin/sudo /usr/bin/apt-get update && \
+            /usr/bin/sudo /usr/bin/apt-get install -y software-properties-common && \
+            /usr/bin/sudo add-apt-repository ppa:deadsnakes/ppa -y && \
+            /usr/bin/sudo /usr/bin/apt-get update && break || \
+            echo "PPA setup attempt $i failed, retrying..."; sleep 20
+          done
+          echo "Listing available Python 3.8 packages:"
+          /usr/bin/sudo /usr/bin/apt-cache search python3.8 || echo "Failed to search for python3.8 packages"
+          echo "Checking PPA policy for python3.8:"
+          /usr/bin/sudo /usr/bin/apt-cache policy python3.8 || echo "Failed to check python3.8 policy"
+          echo "Checking available versions for python3.8:"
+          /usr/bin/sudo /usr/bin/apt-cache madison python3.8 || echo "Failed to check python3.8 versions"
+          echo "Listing available Python 3.9 packages:"
+          /usr/bin/sudo /usr/bin/apt-cache search python3.9 || echo "Failed to search for python3.9 packages"
+          echo "Checking PPA policy for python3.9:"
+          /usr/bin/sudo /usr/bin/apt-cache policy python3.9 || echo "Failed to check python3.9 policy"
+          echo "Checking available versions for python3.9:"
+          /usr/bin/sudo /usr/bin/apt-cache madison python3.9 || echo "Failed to check python3.9 versions"
+      - name: Install system dependencies
+        run: |
+          echo "Installing system dependencies..."
+          /usr/bin/sudo /usr/bin/apt-get install -y git tar build-essential python3-dev python3.8 python3.8-dev python3.8-venv python3.8-distutils python3.9 python3.9-dev python3.9-venv python3.9-distutils python3-pip ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libffi8 libssl-dev gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
+          echo "Verifying Python 3.8 installation:"
+          /usr/bin/python3.8 --version || { echo "Python 3.8 installation failed"; exit 1; }
+          /usr/bin/python3.8 -m ensurepip --version || echo "ensurepip not found for Python 3.8"
+          echo "Verifying Python 3.9 installation:"
+          /usr/bin/python3.9 --version || { echo "Python 3.9 installation failed"; exit 1; }
+          /usr/bin/python3.9 -m ensurepip --version || echo "ensurepip not found for Python 3.9"
+          /usr/bin/git --version
+          /bin/tar --version
+          /usr/bin/java -version
+          /usr/bin/javac -version
+      - name: Diagnose environment
+        run: |
+          echo "Diagnosing environment..."
+          echo "Current PATH: $PATH"
+          echo "Current JAVA_HOME: $JAVA_HOME"
+          echo "Current LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+          echo "Current CFLAGS: $CFLAGS"
+          echo "Current LDFLAGS: $LDFLAGS"
+          echo "Java version:"
+          /usr/bin/java -version || echo "Java not found"
+          /usr/bin/javac -version || echo "Javac not found"
+          echo "Checking JNI libraries:"
+          find /usr/lib/jvm/java-8-openjdk-amd64 -name 'libjvm.so' || echo "libjvm.so not found"
+          find /usr/lib -name 'libffi.so' || echo "libffi.so not found"
+          echo "Python 3.8 version:"
+          /usr/bin/python3.8 --version || echo "Python 3.8 not found"
+          which /usr/bin/python3.8
+          echo "Pip version for Python 3.8:"
+          /usr/bin/python3.8 -m pip --version || echo "pip for Python 3.8 not found"
+          echo "Python 3.9 version:"
+          /usr/bin/python3.9 --version || echo "Python 3.9 not found"
+          which /usr/bin/python3.9
+          echo "Checking ensurepip for Python 3.9:"
+          /usr/bin/python3.9 -m ensurepip --version || echo "ensurepip not found for Python 3.9"
+          echo "Checking Python site paths for Python 3.8:"
+          /usr/bin/python3.8 -m site
+          echo "Checking network connectivity to GitHub..."
+          ping -c 4 github.com || echo "Failed to ping github.com"
+          curl -I https://github.com/kivy/pyjnius.git || echo "Failed to access pyjnius repository"
+          echo "Listing /bin, /usr/bin, /usr/local/bin, ~/.local/bin contents:"
+          ls -la /bin /usr/bin /usr/local/bin /home/runner/.local/bin || echo "Failed to list system directories"
+          echo "Checking critical commands:"
+          /usr/bin/sudo /usr/bin/apt-get --version && echo "apt-get found" || echo "apt-get not found"
+          /usr/bin/git --version && echo "git found" || echo "git not found"
+          /bin/tar --version && echo "tar found" || echo "tar not found"
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8'
+      - name: Clean Python environment
+        run: |
+          echo "Cleaning Python user environment..."
+          /usr/bin/sudo rm -rf /home/runner/.local /home/runner/.kivy /home/runner/.cache/pip
+      - name: Create and activate virtual environment for Python 3.8
+        run: |
+          echo "Creating virtual environment for Python 3.8..."
+          /usr/bin/python3.8 -m venv /home/runner/venv
+          source /home/runner/venv/bin/activate
+          echo "Upgrading pip in virtual environment..."
+          python -m pip install --upgrade pip
+          echo "Current pip version in virtual environment:"
+          python -m pip --version
+      - name: Install Python dependencies
+        run: |
+          source /home/runner/venv/bin/activate
+          echo "Installing base Python dependencies..."
+          python -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1
+          echo "Listing base pip install log:"
+          cat pip_base_install.log
+          echo "Installing pyjnius from PyPI (1.6.1)..."
+          python -m pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install.log 2>&1 || echo "PyPI install (1.6.1) failed"
+          echo "Listing pyjnius PyPI install log (1.6.1):"
+          cat pip_pyjnius_pypi_install.log
+          echo "Fallback: Installing pyjnius from PyPI (1.5.0)..."
+          python -m pip install pyjnius==1.5.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_1_5_0_install.log 2>&1 || echo "PyPI install (1.5.0) failed"
+          echo "Listing pyjnius PyPI install log (1.5.0):"
+          cat pip_pyjnius_1_5_0_install.log
+          echo "Listing installed Python packages:"
+          python -m pip list
+          echo "Listing Python site-packages directories:"
+          ls -la /home/runner/venv/lib/python3.8/site-packages/ || echo "Failed to list virtualenv site-packages"
+          echo "Checking Python site paths:"
+          python -m site
+          echo "Checking Python dependencies:"
+          python -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Kivy import failed"; exit 1; }
+          python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Pyjnius import failed"; exit 1; }
+          python -c "import plyer; print('Plyer imported successfully')" || { echo "Plyer import failed"; exit 1; }
+      - name: Fallback to Python 3.9 if Python 3.8 fails
+        if: failure()
+        run: |
+          echo "Python 3.8 failed, trying Python 3.9..."
+          /usr/bin/python3.9 --version || { echo "Python 3.9 not installed"; exit 1; }
+          echo "Checking ensurepip for Python 3.9:"
+          /usr/bin/python3.9 -m ensurepip --version || { echo "ensurepip not found for Python 3.9"; exit 1; }
+          /usr/bin/sudo /usr/bin/python3.9 -m ensurepip --upgrade
+          /usr/bin/sudo /usr/bin/python3.9 -m pip install --upgrade pip
+          echo "Creating virtual environment for Python 3.9..."
+          /usr/bin/python3.9 -m venv /home/runner/venv3.9
+          source /home/runner/venv3.9/bin/activate
+          echo "Current Python 3.9 version:"
+          python --version
+          echo "Current pip version for Python 3.9:"
+          python -m pip --version
+          echo "Installing base Python dependencies with Python 3.9..."
+          python -m pip install buildozer cython==0.29.36 kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install_3.9.log 2>&1
+          echo "Listing base pip install log (Python 3.9):"
+          cat pip_base_install_3.9.log
+          echo "Installing pyjnius from PyPI (1.6.1) with Python 3.9..."
+          python -m pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_pypi_install_3.9.log 2>&1 || echo "PyPI install (1.6.1) failed (Python 3.9)"
+          echo "Listing pyjnius PyPI install log (1.6.1, Python 3.9):"
+          cat pip_pyjnius_pypi_install_3.9.log
+          echo "Fallback: Installing pyjnius from PyPI (1.5.0) with Python 3.9..."
+          python -m pip install pyjnius==1.5.0 --no-binary pyjnius --no-cache-dir --verbose > pip_pyjnius_1_5_0_install_3.9.log 2>&1 || echo "PyPI install (1.5.0) failed (Python 3.9)"
+          echo "Listing pyjnius PyPI install log (1.5.0, Python 3.9):"
+          cat pip_pyjnius_1_5_0_install_3.9.log
+          echo "Listing installed Python packages (Python 3.9):"
+          python -m pip list
+          echo "Listing Python site-packages directories:"
+          ls -la /home/runner/venv3.9/lib/python3.9/site-packages/ || echo "Failed to list virtualenv site-packages"
+          echo "Checking Python site paths:"
+          python -m site
+      - name: Clean Buildozer and python-for-android cache
+        run: |
+          source /home/runner/venv/bin/activate
+          echo "Cleaning Buildozer and python-for-android cache..."
+          /usr/bin/sudo rm -rf /home/runner/.buildozer
+          /usr/bin/sudo rm -rf .buildozer
+          /usr/bin/sudo rm -rf /home/runner/work/Name-citations/Name-citations/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a
+      - name: Install Android SDK
+        run: |
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          /usr/bin/wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+          /usr/bin/unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          echo "Installing SDK components..."
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
+          mkdir -p $ANDROID_HOME/tools/bin
+          ln -sf $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
+          ls -la $ANDROID_HOME/cmdline-tools/latest/bin/ || echo "cmdline-tools directory not found"
+          ls -la $ANDROID_HOME/tools/bin/ || echo "tools/bin directory not found"
+          ls -la $ANDROID_HOME/build-tools/30.0.3/ || echo "Build-tools directory not found"
+          if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then echo "sdkmanager found"; else echo "sdkmanager not found"; exit 1; fi
+          if [ -f "$ANDROID_HOME/tools/bin/sdkmanager" ]; then echo "sdkmanager symlink found"; else echo "sdkmanager symlink not found"; exit 1; fi
+          if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
+      - name: Initialize Buildozer
+        run: |
+          source /home/runner/venv/bin/activate
+          buildozer init
+      - name: Configure Buildozer
+        run: |
+          source /home/runner/venv/bin/activate
+          sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.6.1,plyer,difflib/' buildozer.spec
+          sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
+          sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
+          sed -i 's/title = .*/title = Citations Positives/' buildozer.spec
+          sed -i 's/package.name = .*/package.name = citationspositives/' buildozer.spec
+          sed -i 's/package.domain = .*/package.domain = org.example/' buildozer.spec
+          sed -i 's/version = .*/version = 1.0/' buildozer.spec
+          sed -i 's/orientation = .*/orientation = portrait/' buildozer.spec
+          sed -i 's|#android.sdk_path =.*|android.sdk_path = /home/runner/android-sdk|' buildozer.spec
+          sed -i 's|#android.ndk_path =.*|android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b|' buildozer.spec
+          sed -i 's/log_level = .*/log_level = 2/' buildozer.spec
+          sed -i 's/android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
+      - name: Build APK
+        run: |
+          source /home/runner/venv/bin/activate
+          export ANDROID_HOME=/home/runner/android-sdk
+          export ANDROID_SDK_ROOT=/home/runner/android-sdk
+          export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+          export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/lib/server:/usr/lib
+          export CFLAGS="-I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux"
+          export LDFLAGS="-L/usr/lib/jvm/java-8-openjdk-amd64/lib/server -ljvm"
+          export PATH=/bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
+          buildozer android debug
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: bin/*.apk
