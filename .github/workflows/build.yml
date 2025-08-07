@@ -8,8 +8,10 @@ jobs:
     env:
       ANDROID_HOME: /home/runner/android-sdk
       ANDROID_SDK_ROOT: /home/runner/android-sdk
-      JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
-      LD_LIBRARY_PATH: /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
+      JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
+      LD_LIBRARY_PATH: /usr/lib/jvm/java-11-openjdk-amd64/lib/server:/usr/lib
+      CFLAGS: -I/usr/lib/jvm/java-11-openjdk-amd64/include -I/usr/lib/jvm/java-11-openjdk-amd64/include/linux
+      LDFLAGS: -L/usr/lib/jvm/java-11-openjdk-amd64/lib/server -ljvm
       PATH: /bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
     steps:
       - name: Clean apt locks
@@ -33,8 +35,12 @@ jobs:
             python3-dev python3.9 python3.9-dev python3.9-venv python3.9-distutils \
             python3.8 python3.8-dev python3.8-venv python3.8-distutils python3-pip \
             ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-            openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libssl-dev \
+            openjdk-11-jdk unzip zlib1g-dev libffi-dev libssl-dev \
             gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
+      - name: Vérifier la version de Java
+        run: |
+          echo "JAVA_HOME is set to $JAVA_HOME"
+          $JAVA_HOME/bin/java -version
       - name: Vérifier les installations Python
         run: |
           echo "Vérification de Python 3.9 :"
@@ -47,7 +53,7 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
-      - name: Créer et activer un environnement virtuel pour Python 3.9
+      - name: Créer et activer un environnement virtuel pour CAMPUS
         run: |
           echo "Création de l'environnement virtuel pour Python 3.9..."
           python3.9 -m venv /home/runner/venv
