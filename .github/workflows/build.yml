@@ -54,10 +54,9 @@ jobs:
           echo "Vérification de Java :"
           echo "JAVA_HOME est défini à $JAVA_HOME"
           $JAVA_HOME/bin/java -version || { echo "Échec de l'installation de Java"; exit 1; }
+          $JAVA_HOME/bin/javac -version || { echo "Échec de l'installation de javac"; exit 1; }
           echo "Vérification des en-têtes JNI :"
           ls -la /usr/lib/jvm/java-11-openjdk-amd64/include/jni.h || { echo "jni.h introuvable"; exit 1; }
-          echo "Vérification de la version de javac :"
-          $JAVA_HOME/bin/javac -version || { echo "Échec de l'installation de javac"; exit 1; }
       - name: Checkout du dépôt
         uses: actions/checkout@v4
       - name: Configurer Python
@@ -88,14 +87,14 @@ jobs:
           python -m pip install cython==0.29.21 setuptools==65.5.1 wheel==0.38.4 --no-cache-dir --verbose > pip_cython_setuptools_install.log 2>&1 || { echo "Échec de l'installation de Cython, setuptools ou wheel"; cat pip_cython_setuptools_install.log; exit 1; }
           echo "Installation des dépendances Python de base..."
           python -m pip install buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1 || { echo "Échec de l'installation des dépendances de base"; cat pip_base_install.log; exit 1; }
-          echo "Installation de pyjnius..."
+          echo "Installation de pyjnius (tentative avec compilation)..."
           python -m pip install pyjnius==1.3.0 --no-binary pyjnius --no-cache-dir --verbose --no-build-isolation > pip_pyjnius_install.log 2>&1 || { echo "Échec de l'installation de pyjnius"; cat pip_pyjnius_install.log; exit 1; }
           echo "Contenu du log d'installation de pyjnius :"
           cat pip_pyjnius_install.log
           echo "Vérification des fichiers installés pour pyjnius..."
           ls -la /home/runner/venv/lib/python3.9/site-packages/jnius || echo "Répertoire jnius introuvable dans site-packages"
           echo "Vérification immédiate de pyjnius..."
-          python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius"; ls -la /home/runner/venv/lib/python3.9/site-packages; cat pip_pyjnius_install.log; exit 1; }
+          python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation binaire..."; python -m pip install pyjnius==1.3.0 --no-cache-dir --verbose > pip_pyjnius_binary_install.log 2>&1 || { echo "Échec de l'installation binaire de pyjnius"; cat pip_pyjnius_binary_install.log; exit 1; }; python -c "import pyjnius; print('Pyjnius version (binaire):', pyjnius.__version__)"; }
           echo "Liste des paquets Python installés :"
           python -m pip list
           echo "Vérification des chemins Python :"
