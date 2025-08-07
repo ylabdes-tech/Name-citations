@@ -5,8 +5,19 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /home/runner/android-sdk
+      ANDROID_SDK_ROOT: /home/runner/android-sdk
+      PATH: $PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
     steps:
-    - uses: actions/checkout@v4
+    - name: Install Git and tar
+      run: |
+        sudo apt update
+        sudo apt install -y git tar
+        git --version
+        tar --version
+    - name: Checkout repository
+      uses: actions/checkout@v4
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
@@ -14,23 +25,39 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y build-essential git python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk
-        pip install buildozer cython  # Cython inclus pour éviter l’erreur
+        sudo apt install -y build-essential git python3-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev openjdk-8-jdk unzip
+        pip install buildozer cython
+    - name: Install Android SDK
+      run: |
+        mkdir -p $ANDROID_HOME/cmdline-tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+        unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
+        mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
+        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
+        # Verify SDK installation
+        ls -la $ANDROID_HOME/build-tools/30.0.3/
+        if [ -f "$ANDROID_HOME/build-tools/30.0.3/aidl" ]; then echo "AIDL found"; else echo "AIDL not found"; exit 1; fi
+        if [ -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then echo "sdkmanager found"; else echo "sdkmanager not found"; exit 1; fi
     - name: Initialize Buildozer
       run: |
         buildozer init
     - name: Configure Buildozer
       run: |
-        sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius,plyer/' buildozer.spec
-        sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec  # Vérifiez que icon.ico est présent
+        sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius,plyer,difflib/' buildozer.spec
+        sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
         sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
-        sed -i 's/title = .*/title = Mon Application/' buildozer.spec  # Changez le titre
-        sed -i 's/package.name = .*/package.name = monapplication/' buildozer.spec  # Nom unique
+        sed -i 's/title = .*/title = Citations Positives/' buildozer.spec
+        sed -i 's/package.name = .*/package.name = citationspositives/' buildozer.spec
         sed -i 's/package.domain = .*/package.domain = org.example/' buildozer.spec
         sed -i 's/version = .*/version = 1.0/' buildozer.spec
         sed -i 's/orientation = .*/orientation = portrait/' buildozer.spec
+        sed -i 's|#android.sdk_path =.*|android.sdk_path = /home/runner/android-sdk|' buildozer.spec
     - name: Build APK
       run: |
+        export ANDROID_HOME=/home/runner/android-sdk
+        export ANDROID_SDK_ROOT=/home/runner/android-sdk
+        export PATH=$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
         buildozer android debug
     - name: Upload APK
       uses: actions/upload-artifact@v4
