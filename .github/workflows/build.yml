@@ -9,12 +9,11 @@ jobs:
       ANDROID_HOME: /home/runner/android-sdk
       ANDROID_SDK_ROOT: /home/runner/android-sdk
       JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
-      LD_LIBRARY_PATH: /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
+      LD_LIBRARY_PATH: /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64:/usr/lib
       CFLAGS: -I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux
-      LDFLAGS: -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm
+      LDFLAGS: -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64 -ljvm
       PATH: /home/runner/venv/bin:/bin:/usr/bin:/usr/local/bin:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
       PYTHONPATH: /home/runner/venv/lib/python3.9/site-packages
-      PYTHONNOUSERSITE: 1
     steps:
       - name: Clean apt locks
         run: |
@@ -48,6 +47,9 @@ jobs:
           find /usr/lib/jvm/java-8-openjdk-amd64 -name 'libjvm.so' || { echo "libjvm.so introuvable"; exit 1; }
           find /usr/lib -name 'libffi.so' || { echo "libffi.so introuvable"; exit 1; }
           find /usr/lib/jvm/java-8-openjdk-amd64/include -name 'jni.h' || { echo "jni.h introuvable"; exit 1; }
+          echo "Vérification de LD_LIBRARY_PATH :"
+          echo $LD_LIBRARY_PATH
+          ldd /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so || { echo "Échec de la vérification des dépendances de libjvm.so"; exit 1; }
       - name: Vérifier les installations Python et Java
         run: |
           echo "Vérification de Python 3.9 :"
@@ -88,26 +90,27 @@ jobs:
           source /home/runner/venv/bin/activate
           echo "Installation de Cython, setuptools et wheel..."
           export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-          export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
+          export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64:/usr/lib
           export CFLAGS="-I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux"
-          export LDFLAGS="-L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm"
+          export LDFLAGS="-L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64 -ljvm"
           export PYTHONPATH=/home/runner/venv/lib/python3.9/site-packages
-          export PYTHONNOUSERSITE=1
           /home/runner/venv/bin/python -m pip install cython==0.29.21 setuptools==65.5.1 wheel==0.38.4 --no-cache-dir --verbose > pip_cython_setuptools_install.log 2>&1 || { echo "Échec de l'installation de Cython, setuptools ou wheel"; cat pip_cython_setuptools_install.log; exit 1; }
           echo "Installation des dépendances Python de base..."
           /home/runner/venv/bin/python -m pip install buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1 || { echo "Échec de l'installation des dépendances de base"; cat pip_base_install.log; exit 1; }
-          echo "Installation de pyjnius (tentative avec compilation)..."
-          /home/runner/venv/bin/python -m pip install pyjnius==1.4.0 --no-binary pyjnius --no-cache-dir --no-build-isolation --force-reinstall --no-deps --verbose > pip_pyjnius_install.log 2>&1 || { echo "Échec de l'installation de pyjnius"; cat pip_pyjnius_install.log; exit 1; }
+          echo "Installation de pyjnius (tentative avec wheel binaire)..."
+          /home/runner/venv/bin/python -m pip install pyjnius==1.3.0 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_install.log 2>&1 || { echo "Échec de l'installation de pyjnius"; cat pip_pyjnius_install.log; exit 1; }
           echo "Contenu du log d'installation de pyjnius :"
           cat pip_pyjnius_install.log
           echo "Vérification des fichiers installés pour pyjnius..."
           ls -la /home/runner/venv/lib/python3.9/site-packages/jnius || echo "Répertoire jnius introuvable dans site-packages"
           echo "Vérification de la présence de __init__.py dans jnius..."
           ls -la /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py || { echo "__init__.py introuvable dans jnius, création manuelle..."; echo -e "from .jnius import *\nfrom .reflect import *\nfrom .env import *\nfrom .signatures import *" > /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py; cat /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py; ls -la /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py; }
+          echo "Vérification de l'intégrité de jnius.so..."
+          ldd /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so || echo "Échec de la vérification des dépendances de jnius.so"
           echo "Vérification des chemins Python (sys.path) :"
           /home/runner/venv/bin/python -c "import sys; print('\n'.join(sys.path))"
           echo "Vérification immédiate de pyjnius..."
-          /home/runner/venv/bin/python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation binaire..."; /home/runner/venv/bin/python -m pip install pyjnius==1.4.0 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_binary_install.log 2>&1 || { echo "Échec de l'installation binaire de pyjnius"; cat pip_pyjnius_binary_install.log; /home/runner/venv/bin/python -m pip install pyjnius==1.2.0 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_fallback_install.log 2>&1 || { echo "Échec de l'installation de pyjnius 1.2.0"; cat pip_pyjnius_fallback_install.log; exit 1; }; /home/runner/venv/bin/python -c "import pyjnius; print('Pyjnius version (fallback 1.2.0):', pyjnius.__version__)"; }; /home/runner/venv/bin/python -c "import pyjnius; print('Pyjnius version (binaire):', pyjnius.__version__)"; }
+          /home/runner/venv/bin/python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation alternative..."; /home/runner/venv/bin/python -m pip install pyjnius==1.2.0 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_fallback_install.log 2>&1 || { echo "Échec de l'installation de pyjnius 1.2.0"; cat pip_pyjnius_fallback_install.log; exit 1; }; ls -la /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py || { echo "__init__.py introuvable après fallback, création manuelle..."; echo -e "from .jnius import *\nfrom .reflect import *\nfrom .env import *\nfrom .signatures import *" > /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py; cat /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py; }; /home/runner/venv/bin/python -c "import pyjnius; print('Pyjnius version (fallback 1.2.0):', pyjnius.__version__)"; }
           echo "Liste des paquets Python installés :"
           /home/runner/venv/bin/python -m pip list
           echo "Vérification des chemins Python :"
@@ -125,7 +128,7 @@ jobs:
           echo "Génération du fichier buildozer.spec..."
           /home/runner/venv/bin/buildozer init || { echo "Échec de la génération de buildozer.spec"; exit 1; }
           echo "Configuration du fichier buildozer.spec..."
-          sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.4.0,plyer,difflib/' buildozer.spec
+          sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.3.0,plyer,difflib/' buildozer.spec
           sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
           sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
           sed -i 's/title = .*/title = Citations Positives/' buildozer.spec
@@ -163,9 +166,8 @@ jobs:
           export ANDROID_HOME=/home/runner/android-sdk
           export ANDROID_SDK_ROOT=/home/runner/android-sdk
           export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
-          export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
+          export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64:/usr/lib
           export PYTHONPATH=/home/runner/venv/lib/python3.9/site-packages
-          export PYTHONNOUSERSITE=1
           export PATH=/home/runner/venv/bin:/bin:/usr/bin:/usr/local/bin:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
           /home/runner/venv/bin/buildozer android debug
       - name: Téléverser l'APK
