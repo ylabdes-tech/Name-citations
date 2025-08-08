@@ -1,124 +1,175 @@
 name: Build Android APK
-
 on:
   push:
     branches: [main]
-
 jobs:
   build:
     runs-on: ubuntu-22.04
     env:
       ANDROID_HOME: /home/runner/android-sdk
       ANDROID_SDK_ROOT: /home/runner/android-sdk
-      # Java 11 recommandé
-      JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
-      # PATH mis à jour pour inclure venv et outils Android
+      JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
+      LD_LIBRARY_PATH: /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
+      CFLAGS: -I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux
+      LDFLAGS: -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64 -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm
       PATH: /home/runner/venv/bin:/bin:/usr/bin:/usr/local/bin:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
-      # PYTHONPATH pour venv, pas de site global user
-      PYTHONPATH: /home/runner/venv/lib/python3.9/site-packages
-      PYTHONNOUSERSITE: 1
-
     steps:
-    - name: Nettoyer les verrous apt
-      run: |
-        sudo rm -f /var/lib/apt/lists/lock
-        sudo rm -f /var/cache/apt/*.bin
-        sudo rm -rf /var/lib/apt/lists/*
-
-    - name: Installer dépendances système
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          git tar build-essential python3-dev python3.9 python3.9-dev python3.9-venv python3.9-distutils python3-pip \
-          ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-          openjdk-11-jdk openjdk-11-jre unzip zlib1g-dev libffi-dev libssl-dev \
-          gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
-
-    - name: Vérifier installations Java et Python
-      run: |
-        $JAVA_HOME/bin/java -version
-        $JAVA_HOME/bin/javac -version
-        python3.9 --version
-        python3.9 -m ensurepip --version
-
-    - name: Créer et activer l’environnement virtuel Python 3.9 + installer dépendances
-      shell: bash
-      run: |
-        python3.9 -m venv /home/runner/venv
-        source /home/runner/venv/bin/activate
-
-        pip install --upgrade pip setuptools wheel
-
-        # Variables nécessaires pour compiler pyjnius
-        export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-        export LD_LIBRARY_PATH=$JAVA_HOME/lib/server:$JAVA_HOME/lib:$JAVA_HOME/jre/lib/amd64/server:$JAVA_HOME/jre/lib/amd64
-        export CFLAGS="-I$JAVA_HOME/include -I$JAVA_HOME/include/linux"
-        export LDFLAGS="-L$JAVA_HOME/lib/server -L$JAVA_HOME/lib -ljvm"
-
-        # Installer cython compatible, buildozer et dépendances Android
-        pip install cython==0.29.36 buildozer kivy==2.2.1 plyer --no-cache-dir
-
-        # Installation pyjnius en forçant compilation locale
-        pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir
-
-        # Test d'importation des modules pour valider l'installation
-        python -c "import kivy; print('Kivy version:', kivy.__version__)"
-        python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)"
-        python -c "import plyer; print('Plyer importé avec succès')"
-
-    - name: Nettoyer cache Buildozer
-      shell: bash
-      run: |
-        rm -rf /home/runner/.buildozer .buildozer
-        rm -rf /home/runner/work/${{ github.repository }}/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a || true
-
-    - name: Installer Android SDK command line tools
-      run: |
-        mkdir -p $ANDROID_HOME/cmdline-tools
-        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-        unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
-        mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
-
-    - name: Initialiser Buildozer
-      run: |
-        source /home/runner/venv/bin/activate
-        buildozer init
-
-    - name: Configurer buildozer.spec
-      run: |
-        sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.6.1,plyer,difflib/' buildozer.spec
-        sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
-        sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
-        sed -i 's/title = .*/title = Citations Positives/' buildozer.spec
-        sed -i 's/package.name = .*/package.name = citationspositives/' buildozer.spec
-        sed -i 's/package.domain = .*/package.domain = org.example/' buildozer.spec
-        sed -i 's/version = .*/version = 1.0/' buildozer.spec
-        sed -i 's/orientation = .*/orientation = portrait/' buildozer.spec
-        sed -i 's|#android.sdk_path =.*|android.sdk_path = /home/runner/android-sdk|' buildozer.spec
-        sed -i 's|#android.ndk_path =.*|android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b|' buildozer.spec
-        sed -i 's/log_level = .*/log_level = 2/' buildozer.spec
-        sed -i 's/android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
-
-    - name: Construire l’APK Android
-      shell: bash
-      run: |
-        source /home/runner/venv/bin/activate
-        export ANDROID_HOME=/home/runner/android-sdk
-        export ANDROID_SDK_ROOT=$ANDROID_HOME
-        export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-        export LD_LIBRARY_PATH=$JAVA_HOME/lib/server:$JAVA_HOME/lib:$JAVA_HOME/jre/lib/amd64/server:$JAVA_HOME/jre/lib/amd64
-        export CFLAGS="-I$JAVA_HOME/include -I$JAVA_HOME/include/linux"
-        export LDFLAGS="-L$JAVA_HOME/lib/server -L$JAVA_HOME/lib -ljvm"
-        export PYTHONPATH=/home/runner/venv/lib/python3.9/site-packages
-        export PYTHONNOUSERSITE=1
-        export PATH=/home/runner/venv/bin:/bin:/usr/bin:/usr/local/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
-        buildozer android debug
-
-    - name: Upload artifact APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: apk
-        path: bin/*.apk
+      - name: Clean apt locks
+        run: |
+          echo "Nettoyage des verrous apt..."
+          sudo rm -f /var/lib/apt/lists/lock
+          sudo rm -f /var/cache/apt/*.bin
+          sudo rm -rf /var/lib/apt/lists/*
+      - name: Ajouter le PPA deadsnakes pour Python 3.9
+        run: |
+          echo "Ajout du PPA deadsnakes..."
+          for i in {1..10}; do
+            sudo apt-get update && \
+            sudo apt-get install -y software-properties-common && \
+            sudo add-apt-repository ppa:deadsnakes/ppa -y && \
+            sudo apt-get update && break || \
+            echo "Tentative $i échouée, nouvelle tentative..."; sleep 20
+          done
+          echo "Vérification des paquets Python disponibles :"
+          sudo apt-cache search python3.9 || echo "Échec de la recherche des paquets python3.9"
+          sudo apt-cache policy python3.9 || echo "Échec de la vérification de la politique python3.9"
+      - name: Installer les dépendances système
+        run: |
+          echo "Installation des dépendances système..."
+          sudo apt-get install -y \
+            git tar build-essential \
+            python3-dev python3.9 python3.9-dev python3.9-venv python3.9-distutils python3-pip \
+            ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+            openjdk-8-jdk openjdk-8-jre unzip zlib1g-dev libffi-dev libssl-dev \
+            gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
+          echo "Vérification des bibliothèques JNI :"
+          find /usr/lib/jvm/java-8-openjdk-amd64 -name 'libjvm.so' || { echo "libjvm.so introuvable"; exit 1; }
+          find /usr/lib -name 'libffi.so' || { echo "libffi.so introuvable"; exit 1; }
+          find /usr/lib/jvm/java-8-openjdk-amd64/include -name 'jni.h' || { echo "jni.h introuvable"; exit 1; }
+          echo "Vérification de LD_LIBRARY_PATH :"
+          echo $LD_LIBRARY_PATH
+      - name: Vérifier les installations Python et Java
+        run: |
+          echo "Vérification de Python 3.9 :"
+          python3.9 --version || { echo "Échec de l'installation de Python 3.9"; exit 1; }
+          python3.9 -m ensurepip --version || { echo "ensurepip introuvable pour Python 3.9"; exit 1; }
+          echo "Vérification de Java :"
+          echo "JAVA_HOME est défini à $JAVA_HOME"
+          $JAVA_HOME/bin/java -version || { echo "Échec de l'installation de Java"; exit 1; }
+          $JAVA_HOME/bin/javac -version || { echo "Échec de l'installation de javac"; exit 1; }
+          echo "Vérification des en-têtes JNI :"
+          ls -la /usr/lib/jvm/java-8-openjdk-amd64/include/jni.h || { echo "jni.h introuvable"; exit 1; }
+      - name: Checkout du dépôt
+        uses: actions/checkout@v4
+      - name: Configurer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - name: Nettoyer l'environnement Python
+        run: |
+          echo "Nettoyage de l'environnement Python utilisateur..."
+          sudo rm -rf /home/runner/.local /home/runner/.kivy /home/runner/.cache/pip /home/runner/.cache /home/runner/venv
+      - name: Créer et activer un environnement virtuel pour Python 3.9
+        run: |
+          echo "Création de l'environnement virtuel pour Python 3.9..."
+          python3.9 -m venv /home/runner/venv --without-pip
+          source /home/runner/venv/bin/activate
+          echo "Installation de pip manuellement..."
+          curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
+          /home/runner/venv/bin/python get-pip.py pip==24.2
+          echo "Version actuelle de pip :"
+          /home/runner/venv/bin/python -m pip --version
+          echo "Vérification du Python utilisé :"
+          which python
+          /home/runner/venv/bin/python --version
+          echo "Vérification de l'isolation de sys.path :"
+          /home/runner/venv/bin/python -c "import sys; print('\n'.join(sys.path))"
+      - name: Installer les dépendances Python
+        run: |
+          source /home/runner/venv/bin/activate
+          echo "Installation de Cython, setuptools et wheel..."
+          export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+          export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
+          export CFLAGS="-I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux"
+          export LDFLAGS="-L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64 -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm"
+          /home/runner/venv/bin/python -m pip install cython==0.29.21 setuptools==65.5.1 wheel==0.38.4 --no-cache-dir --verbose > pip_cython_setuptools_install.log 2>&1 || { echo "Échec de l'installation de Cython, setuptools ou wheel"; cat pip_cython_setuptools_install.log; exit 1; }
+          echo "Installation des dépendances Python de base..."
+          /home/runner/venv/bin/python -m pip install buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1 || { echo "Échec de l'installation des dépendances de base"; cat pip_base_install.log; exit 1; }
+          echo "Installation de pyjnius (tentative avec wheel préconstruit)..."
+          /home/runner/venv/bin/python -m pip install pyjnius==1.6.1 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_install.log 2>&1 || { echo "Échec de l'installation de pyjnius"; cat pip_pyjnius_install.log; exit 1; }
+          echo "Contenu du log d'installation de pyjnius :"
+          cat pip_pyjnius_install.log
+          echo "Vérification des fichiers installés pour pyjnius..."
+          ls -la /home/runner/venv/lib/python3.9/site-packages/jnius || echo "Répertoire jnius introuvable dans site-packages"
+          echo "Vérification de la présence de __init__.py dans jnius..."
+          ls -la /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py || { echo "__init__.py introuvable dans jnius, création manuelle..."; echo -e "from .jnius import *" > /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py; cat /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py; ls -la /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py; }
+          echo "Vérification de l'intégrité de jnius.cpython-39-x86_64-linux-gnu.so :"
+          file /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so || echo "Fichier jnius.cpython-39-x86_64-linux-gnu.so introuvable"
+          ldd /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so || echo "Échec de la vérification des dépendances de jnius.cpython-39-x86_64-linux-gnu.so"
+          echo "Vérification des chemins Python (sys.path) :"
+          /home/runner/venv/bin/python --no-site -c "import sys; print('\n'.join(sys.path))"
+          echo "Vérification immédiate de pyjnius..."
+          /home/runner/venv/bin/python --no-site -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation binaire alternative..."; /home/runner/venv/bin/python -m pip install pyjnius==1.2.0 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_fallback_install.log 2>&1 || { echo "Échec de l'installation de pyjnius 1.2.0"; cat pip_pyjnius_fallback_install.log; exit 1; }; /home/runner/venv/bin/python --no-site -c "import pyjnius; print('Pyjnius version (fallback 1.2.0):', pyjnius.__version__)"; }
+          echo "Liste des paquets Python installés :"
+          /home/runner/venv/bin/python -m pip list
+          echo "Vérification des chemins Python :"
+          /home/runner/venv/bin/python --no-site -m site
+          echo "Vérification des dépendances Python :"
+          /home/runner/venv/bin/python --no-site -c "import cython; print('Cython version:', cython.__version__)" || { echo "Échec de l'importation de Cython"; exit 1; }
+          /home/runner/venv/bin/python --no-site -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Échec de l'importation de Kivy"; exit 1; }
+          /home/runner/venv/bin/python --no-site -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation de Pyjnius"; exit 1; }
+          /home/runner/venv/bin/python --no-site -c "import plyer; print('Plyer importé avec succès')" || { echo "Échec de l'importation de Plyer"; exit 1; }
+          echo "Liste du contenu de site-packages :"
+          ls -la /home/runner/venv/lib/python3.9/site-packages/ || echo "Échec de l'affichage de site-packages"
+      - name: Générer et configurer buildozer.spec
+        run: |
+          source /home/runner/venv/bin/activate
+          echo "Génération du fichier buildozer.spec..."
+          /home/runner/venv/bin/buildozer init || { echo "Échec de la génération de buildozer.spec"; exit 1; }
+          echo "Configuration du fichier buildozer.spec..."
+          sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.6.1,plyer,difflib/' buildozer.spec
+          sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
+          sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
+          sed -i 's/title = .*/title = Citations Positives/' buildozer.spec
+          sed -i 's/package.name = .*/package.name = citationspositives/' buildozer.spec
+          sed -i 's/package.domain = .*/package.domain = org.example/' buildozer.spec
+          sed -i 's/version = .*/version = 1.0/' buildozer.spec
+          sed -i 's/orientation = .*/orientation = portrait/' buildozer.spec
+          sed -i 's|#android.sdk_path =.*|android.sdk_path = /home/runner/android-sdk|' buildozer.spec
+          sed -i 's|#android.ndk_path =.*|android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b|' buildozer.spec
+          sed -i 's/log_level = .*/log_level = 2/' buildozer.spec
+          sed -i 's/android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
+          echo "Contenu du fichier buildozer.spec :"
+          cat buildozer.spec
+      - name: Nettoyer le cache Buildozer
+        run: |
+          source /home/runner/venv/bin/activate
+          echo "Nettoyage du cache Buildozer et python-for-android..."
+          sudo rm -rf /home/runner/.buildozer .buildozer /home/runner/work/Name-citations/Name-citations/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a
+      - name: Installer le SDK Android
+        run: |
+          mkdir -p $ANDROID_HOME/cmdline-tools
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+          unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
+          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+          echo "Installation des composants SDK..."
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
+          echo "Vérification des composants SDK installés :"
+          ls -la $ANDROID_HOME/build-tools/30.0.3/ || echo "Répertoire build-tools introuvable"
+          ls -la $ANDROID_HOME/platforms/android-30/ || echo "Répertoire platforms/android-30 introuvable"
+          ls -la $ANDROID_HOME/platform-tools/ || echo "Répertoire platform-tools introuvable"
+      - name: Construire l'APK
+        run: |
+          source /home/runner/venv/bin/activate
+          export ANDROID_HOME=/home/runner/android-sdk
+          export ANDROID_SDK_ROOT=/home/runner/android-sdk
+          export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
+          export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
+          export PATH=/home/runner/venv/bin:/bin:/usr/bin:/usr/local/bin:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
+          /home/runner/venv/bin/buildozer android debug
+      - name: Téléverser l'APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: bin/*.apk
