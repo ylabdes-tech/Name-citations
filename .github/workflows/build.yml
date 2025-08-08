@@ -13,6 +13,7 @@ jobs:
       CFLAGS: -I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux
       LDFLAGS: -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm
       PATH: /bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
+      PYTHONPATH: /home/runner/venv/lib/python3.9/site-packages
     steps:
       - name: Clean apt locks
         run: |
@@ -76,6 +77,9 @@ jobs:
           python -m pip install --upgrade pip==24.2
           echo "Version actuelle de pip :"
           python -m pip --version
+          echo "Vérification du Python utilisé :"
+          which python
+          python --version
       - name: Installer les dépendances Python
         run: |
           source /home/runner/venv/bin/activate
@@ -84,6 +88,7 @@ jobs:
           export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
           export CFLAGS="-I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux"
           export LDFLAGS="-L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm"
+          export PYTHONPATH=/home/runner/venv/lib/python3.9/site-packages
           python -m pip install cython==0.29.21 setuptools==65.5.1 wheel==0.38.4 --no-cache-dir --verbose > pip_cython_setuptools_install.log 2>&1 || { echo "Échec de l'installation de Cython, setuptools ou wheel"; cat pip_cython_setuptools_install.log; exit 1; }
           echo "Installation des dépendances Python de base..."
           python -m pip install buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1 || { echo "Échec de l'installation des dépendances de base"; cat pip_base_install.log; exit 1; }
@@ -93,8 +98,12 @@ jobs:
           cat pip_pyjnius_install.log
           echo "Vérification des fichiers installés pour pyjnius..."
           ls -la /home/runner/venv/lib/python3.9/site-packages/jnius || echo "Répertoire jnius introuvable dans site-packages"
+          echo "Vérification de la présence de __init__.py dans jnius..."
+          ls -la /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py || echo "__init__.py introuvable dans jnius"
+          echo "Vérification des chemins Python (sys.path) :"
+          python -c "import sys; print('\n'.join(sys.path))"
           echo "Vérification immédiate de pyjnius..."
-          python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation binaire..."; python -m pip install pyjnius==1.3.0 --no-cache-dir --verbose > pip_pyjnius_binary_install.log 2>&1 || { echo "Échec de l'installation binaire de pyjnius"; cat pip_pyjnius_binary_install.log; exit 1; }; python -c "import pyjnius; print('Pyjnius version (binaire):', pyjnius.__version__)"; }
+          python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation binaire..."; python -m pip install pyjnius==1.3.0 --no-cache-dir --verbose > pip_pyjnius_binary_install.log 2>&1 || { echo "Échec de l'installation binaire de pyjnius"; cat pip_pyjnius_binary_install.log; python -m pip install pyjnius==1.2.0 --no-cache-dir --verbose > pip_pyjnius_fallback_install.log 2>&1 || { echo "Échec de l'installation de pyjnius 1.2.0"; cat pip_pyjnius_fallback_install.log; exit 1; }; python -c "import pyjnius; print('Pyjnius version (fallback 1.2.0):', pyjnius.__version__)"; }; python -c "import pyjnius; print('Pyjnius version (binaire):', pyjnius.__version__)"; }
           echo "Liste des paquets Python installés :"
           python -m pip list
           echo "Vérification des chemins Python :"
@@ -151,6 +160,7 @@ jobs:
           export ANDROID_SDK_ROOT=/home/runner/android-sdk
           export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
           export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
+          export PYTHONPATH=/home/runner/venv/lib/python3.9/site-packages
           export PATH=/bin:/usr/bin:/usr/local/bin:/home/runner/.local/bin:$PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
           buildozer android debug
       - name: Téléverser l'APK
