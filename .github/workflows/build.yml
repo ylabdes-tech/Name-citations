@@ -72,7 +72,7 @@ jobs:
       - name: Créer et activer un environnement virtuel pour Python 3.9
         run: |
           echo "Création de l'environnement virtuel pour Python 3.9..."
-          python3.9 -m venv /home/runner/venv --without-pip
+          python3.9 -m venv /home/runner/venv --clear --without-pip
           source /home/runner/venv/bin/activate
           echo "Installation de pip manuellement..."
           curl https://bootstrap.pypa.io/get-pip.py -o get-pip.py
@@ -83,7 +83,7 @@ jobs:
           which python
           /home/runner/venv/bin/python --version
           echo "Vérification de l'isolation de sys.path :"
-          /home/runner/venv/bin/python -c "import sys; print('\n'.join(sys.path))"
+          /home/runner/venv/bin/python -S -c "import sys; print('\n'.join(sys.path))"
       - name: Installer les dépendances Python
         run: |
           source /home/runner/venv/bin/activate
@@ -107,18 +107,18 @@ jobs:
           file /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so || echo "Fichier jnius.cpython-39-x86_64-linux-gnu.so introuvable"
           ldd /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so || echo "Échec de la vérification des dépendances de jnius.cpython-39-x86_64-linux-gnu.so"
           echo "Vérification des chemins Python (sys.path) :"
-          /home/runner/venv/bin/python --no-site -c "import sys; print('\n'.join(sys.path))"
+          /home/runner/venv/bin/python -S -c "import sys; print('\n'.join(sys.path))"
           echo "Vérification immédiate de pyjnius..."
-          /home/runner/venv/bin/python --no-site -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation binaire alternative..."; /home/runner/venv/bin/python -m pip install pyjnius==1.2.0 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_fallback_install.log 2>&1 || { echo "Échec de l'installation de pyjnius 1.2.0"; cat pip_pyjnius_fallback_install.log; exit 1; }; /home/runner/venv/bin/python --no-site -c "import pyjnius; print('Pyjnius version (fallback 1.2.0):', pyjnius.__version__)"; }
+          /home/runner/venv/bin/python -S -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation binaire alternative..."; /home/runner/venv/bin/python -m pip install pyjnius==1.4.0 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_fallback_install.log 2>&1 || { echo "Échec de l'installation de pyjnius 1.4.0"; cat pip_pyjnius_fallback_install.log; exit 1; }; /home/runner/venv/bin/python -S -c "import pyjnius; print('Pyjnius version (fallback 1.4.0):', pyjnius.__version__)"; }
           echo "Liste des paquets Python installés :"
           /home/runner/venv/bin/python -m pip list
           echo "Vérification des chemins Python :"
-          /home/runner/venv/bin/python --no-site -m site
+          /home/runner/venv/bin/python -S -m site
           echo "Vérification des dépendances Python :"
-          /home/runner/venv/bin/python --no-site -c "import cython; print('Cython version:', cython.__version__)" || { echo "Échec de l'importation de Cython"; exit 1; }
-          /home/runner/venv/bin/python --no-site -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Échec de l'importation de Kivy"; exit 1; }
-          /home/runner/venv/bin/python --no-site -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation de Pyjnius"; exit 1; }
-          /home/runner/venv/bin/python --no-site -c "import plyer; print('Plyer importé avec succès')" || { echo "Échec de l'importation de Plyer"; exit 1; }
+          /home/runner/venv/bin/python -S -c "import cython; print('Cython version:', cython.__version__)" || { echo "Échec de l'importation de Cython"; exit 1; }
+          /home/runner/venv/bin/python -S -c "import kivy; print('Kivy version:', kivy.__version__)" || { echo "Échec de l'importation de Kivy"; exit 1; }
+          /home/runner/venv/bin/python -S -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation de Pyjnius"; exit 1; }
+          /home/runner/venv/bin/python -S -c "import plyer; print('Plyer importé avec succès')" || { echo "Échec de l'importation de Plyer"; exit 1; }
           echo "Liste du contenu de site-packages :"
           ls -la /home/runner/venv/lib/python3.9/site-packages/ || echo "Échec de l'affichage de site-packages"
       - name: Générer et configurer buildozer.spec
