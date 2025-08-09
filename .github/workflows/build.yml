@@ -15,12 +15,16 @@ jobs:
       LDFLAGS: -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64 -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm
       PATH: /home/runner/venv/bin:/bin:/usr/bin:/usr/local/bin:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
     steps:
-      - name: Clean apt locks
+      - name: Clean apt locks and Java installations
         run: |
-          echo "Nettoyage des verrous apt..."
+          echo "Nettoyage des verrous apt et des installations Java..."
           sudo rm -f /var/lib/apt/lists/lock
           sudo rm -f /var/cache/apt/*.bin
           sudo rm -rf /var/lib/apt/lists/*
+          sudo update-java-alternatives -s java-1.8.0-openjdk-amd64 || echo "Échec de la mise à jour des alternatives Java, poursuite..."
+          sudo apt-get purge -y openjdk* || echo "Aucune installation Java à purger"
+          sudo apt-get autoremove -y
+          sudo apt-get autoclean
       - name: Ajouter le PPA deadsnakes pour Python 3.9
         run: |
           echo "Ajout du PPA deadsnakes..."
@@ -51,6 +55,8 @@ jobs:
           echo $LD_LIBRARY_PATH
           echo "Vérification de LD_PRELOAD :"
           echo $LD_PRELOAD
+          echo "Vérification de libjvm.so :"
+          ls -la /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so || { echo "libjvm.so introuvable"; exit 1; }
       - name: Vérifier les installations Python et Java
         run: |
           echo "Vérification de Python 3.9 :"
@@ -62,8 +68,6 @@ jobs:
           $JAVA_HOME/bin/javac -version || { echo "Échec de l'installation de javac"; exit 1; }
           echo "Vérification des en-têtes JNI :"
           ls -la /usr/lib/jvm/java-8-openjdk-amd64/include/jni.h || { echo "jni.h introuvable"; exit 1; }
-          echo "Vérification de libjvm.so :"
-          ls -la /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so || { echo "libjvm.so introuvable"; exit 1; }
       - name: Checkout du dépôt
         uses: actions/checkout@v4
       - name: Configurer Python
@@ -115,10 +119,10 @@ jobs:
           echo "Vérification des chemins Python (sys.path) :"
           /home/runner/venv/bin/python -S -c "import sys; print('\n'.join(sys.path))"
           echo "Test détaillé de l'importation de pyjnius..."
-          echo -e "import sys\ntry:\n    import pyjnius\n    print('Pyjnius version:', pyjnius.__version__)\nexcept Exception as e:\n    print('Erreur lors de l\'importation de pyjnius:', str(e))\n    print('sys.path:', sys.path)\n    import os\n    print('LD_LIBRARY_PATH:', os.environ.get('LD_LIBRARY_PATH'))\n    print('LD_PRELOAD:', os.environ.get('LD_PRELOAD'))" > test_pyjnius.py
+          echo -e "import sys\nimport os\ntry:\n    from jnius import autoclass\n    print('Pyjnius importé avec succès, version:', sys.modules['pyjnius'].__version__)\n    print('Test JNI avec autoclass...')\n    System = autoclass('java.lang.System')\n    print('Propriété Java:', System.getProperty('java.version'))\nexcept Exception as e:\n    print('Erreur lors de l\'importation de pyjnius:', str(e))\n    print('sys.path:', sys.path)\n    print('LD_LIBRARY_PATH:', os.environ.get('LD_LIBRARY_PATH'))\n    print('LD_PRELOAD:', os.environ.get('LD_PRELOAD'))\n    print('JAVA_HOME:', os.environ.get('JAVA_HOME'))\n    print('Contenu de jnius:', os.listdir('/home/runner/venv/lib/python3.9/site-packages/jnius'))\n    print('Vérification libjvm.so:', os.path.exists('/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so'))" > test_pyjnius.py
           /home/runner/venv/bin/python -S test_pyjnius.py || { echo "Échec du test détaillé de pyjnius"; cat test_pyjnius.py; }
           echo "Vérification immédiate de pyjnius..."
-          /home/runner/venv/bin/python -S -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation binaire alternative..."; /home/runner/venv/bin/python -m pip install pyjnius==1.4.0 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_fallback_install.log 2>&1 || { echo "Échec de l'installation de pyjnius 1.4.0"; cat pip_pyjnius_fallback_install.log; exit 1; }; /home/runner/venv/bin/python -S -c "import pyjnius; print('Pyjnius version (fallback 1.4.0):', pyjnius.__version__)"; }
+          /home/runner/venv/bin/python -S -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation binaire alternative..."; /home/runner/venv/bin/python -m pip install pyjnius==1.4.0 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_fallback_install.log 2>&1 || { echo "Échec de l'installation de pyjnius 1.4.0"; cat pip_pyjnius_fallback_install.log; exit 1; }; /home/runner/venv/bin/python -S test_pyjnius.py || { echo "Échec du test détaillé de pyjnius après fallback"; cat test_pyjnius.py; }; }
           echo "Liste des paquets Python installés :"
           /home/runner/venv/bin/python -m pip list
           echo "Vérification des chemins Python :"
