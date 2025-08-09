@@ -105,6 +105,8 @@ jobs:
           export CFLAGS="-I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux"
           export LDFLAGS="-L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64 -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm"
           /home/runner/venv/bin/python -m pip install cython==0.29.21 setuptools==65.5.1 wheel==0.38.4 --force-reinstall --no-cache-dir --verbose > pip_cython_setuptools_install.log 2>&1 || { echo "Échec de l'installation de Cython, setuptools ou wheel"; cat pip_cython_setuptools_install.log; exit 1; }
+          echo "Vérification immédiate de Cython après installation..."
+          /home/runner/venv/bin/python -S -c "import cython; print('Cython version:', cython.__version__)" || { echo "Échec de l'importation de Cython après installation"; exit 1; }
           echo "Installation des dépendances Python de base..."
           /home/runner/venv/bin/python -m pip install buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1 || { echo "Échec de l'installation des dépendances de base"; cat pip_base_install.log; exit 1; }
           echo "Installation de pyjnius (tentative avec wheel préconstruit)..."
