@@ -15,6 +15,13 @@ jobs:
       PATH: $PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
 
     steps:
+      - name: Installer outils de base
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y tar unzip wget git openjdk-17-jdk python3.9 python3.9-venv python3.9-dev python3-pip \
+            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+            zlib1g-dev libffi-dev libssl-dev libjpeg-dev libpng-dev ffmpeg build-essential
+
       - name: Checkout du dépôt
         uses: actions/checkout@v4
 
@@ -22,33 +29,36 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
+          cache: 'pip'
 
-      - name: Installer Java 17
+      - name: Mettre à jour pip et installer Buildozer
         run: |
-          sudo apt-get update
-          sudo apt-get install -y openjdk-17-jdk unzip
+          python -m pip install --upgrade pip
+          pip install Cython==0.29.21 setuptools wheel
+          pip install buildozer kivy==2.2.1 plyer pyjnius==1.6.1
 
-      - name: Installer dépendances système
-        run: |
-          sudo apt-get install -y \
-            git build-essential python3.9-dev python3-pip ffmpeg \
-            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-            zlib1g-dev libffi-dev libssl-dev libjpeg-dev libpng-dev
+      - name: Cache SDK Android
+        uses: actions/cache@v4
+        with:
+          path: $ANDROID_HOME
+          key: android-sdk
 
       - name: Installer le SDK Android
         run: |
           mkdir -p $ANDROID_HOME/cmdline-tools
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-          unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
-          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
+            wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
+            unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
+            mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
+            yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
+            yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
+          fi
 
-      - name: Installer Buildozer et dépendances Python
-        run: |
-          python3.9 -m pip install --upgrade pip
-          pip install Cython==0.29.21 setuptools wheel
-          pip install buildozer kivy==2.2.1 plyer pyjnius==1.6.1
+      - name: Cache Buildozer
+        uses: actions/cache@v4
+        with:
+          path: .buildozer
+          key: buildozer-cache
 
       - name: Générer buildozer.spec si inexistant
         run: |
@@ -60,8 +70,7 @@ jobs:
           fi
 
       - name: Construire l’APK
-        run: |
-          buildozer android debug
+        run: buildozer android debug
 
       - name: Téléverser l’APK
         uses: actions/upload-artifact@v4
