@@ -1,79 +1,41 @@
-name: Build Android APK
+name: Build and Test
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
-
-    env:
-      ANDROID_HOME: /home/runner/android-sdk
-      ANDROID_SDK_ROOT: /home/runner/android-sdk
-      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
-      PATH: $PATH:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
+    runs-on: ubuntu-latest  # Utilisation d'Ubuntu, où tar est disponible
 
     steps:
-      - name: Installer outils de base
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y tar unzip wget git openjdk-17-jdk python3.9 python3.9-venv python3.9-dev python3-pip \
-            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-            zlib1g-dev libffi-dev libssl-dev libjpeg-dev libpng-dev ffmpeg build-essential
-
-      - name: Checkout du dépôt
+      # Étape 1 : Récupération du code source
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Installer Python 3.9
+      # Étape 2 : Mise à jour et installation des dépendances
+      - name: Install tar
+        run: |
+          apt-get update -y
+          apt-get install -y tar
+
+      # Étape 3 : Installation de Python (si ton projet en a besoin)
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9'
-          cache: 'pip'
+          python-version: '3.10'
 
-      - name: Mettre à jour pip et installer Buildozer
+      # Étape 4 : Installation des dépendances Python
+      - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install Cython==0.29.21 setuptools wheel
-          pip install buildozer kivy==2.2.1 plyer pyjnius==1.6.1
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Cache SDK Android
-        uses: actions/cache@v4
-        with:
-          path: $ANDROID_HOME
-          key: android-sdk
-
-      - name: Installer le SDK Android
+      # Étape 5 : Lancement des tests
+      - name: Run tests
         run: |
-          mkdir -p $ANDROID_HOME/cmdline-tools
-          if [ ! -d "$ANDROID_HOME/cmdline-tools/latest" ]; then
-            wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-            unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
-            mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-            yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
-            yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-          fi
-
-      - name: Cache Buildozer
-        uses: actions/cache@v4
-        with:
-          path: .buildozer
-          key: buildozer-cache
-
-      - name: Générer buildozer.spec si inexistant
-        run: |
-          if [ ! -f buildozer.spec ]; then
-            buildozer init
-            sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.6.1,plyer/' buildozer.spec
-            sed -i 's/package.name = .*/package.name = citationspositives/' buildozer.spec
-            sed -i 's/package.domain = .*/package.domain = org.example/' buildozer.spec
-          fi
-
-      - name: Construire l’APK
-        run: buildozer android debug
-
-      - name: Téléverser l’APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: apk
-          path: bin/*.apk
+          python -m unittest discover
