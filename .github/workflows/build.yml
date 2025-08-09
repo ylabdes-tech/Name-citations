@@ -78,6 +78,7 @@ jobs:
         run: |
           echo "Nettoyage de l'environnement Python utilisateur..."
           sudo rm -rf /home/runner/.local /home/runner/.kivy /home/runner/.cache/pip /home/runner/.cache /home/runner/venv
+          unset PYTHONPATH
       - name: Créer et activer un environnement virtuel pour Python 3.9
         run: |
           echo "Création de l'environnement virtuel pour Python 3.9..."
@@ -97,12 +98,13 @@ jobs:
         run: |
           source /home/runner/venv/bin/activate
           echo "Installation de Cython, setuptools et wheel..."
+          unset PYTHONPATH
           export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
           export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
           export LD_PRELOAD=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so
           export CFLAGS="-I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux"
           export LDFLAGS="-L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64 -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm"
-          /home/runner/venv/bin/python -m pip install cython==0.29.21 setuptools==65.5.1 wheel==0.38.4 --no-cache-dir --verbose > pip_cython_setuptools_install.log 2>&1 || { echo "Échec de l'installation de Cython, setuptools ou wheel"; cat pip_cython_setuptools_install.log; exit 1; }
+          /home/runner/venv/bin/python -m pip install cython==0.29.21 setuptools==65.5.1 wheel==0.38.4 --force-reinstall --no-cache-dir --verbose > pip_cython_setuptools_install.log 2>&1 || { echo "Échec de l'installation de Cython, setuptools ou wheel"; cat pip_cython_setuptools_install.log; exit 1; }
           echo "Installation des dépendances Python de base..."
           /home/runner/venv/bin/python -m pip install buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1 || { echo "Échec de l'installation des dépendances de base"; cat pip_base_install.log; exit 1; }
           echo "Installation de pyjnius (tentative avec wheel préconstruit)..."
@@ -118,9 +120,11 @@ jobs:
           ldd /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so || echo "Échec de la vérification des dépendances de jnius.cpython-39-x86_64-linux-gnu.so"
           echo "Vérification des chemins Python (sys.path) :"
           /home/runner/venv/bin/python -S -c "import sys; print('\n'.join(sys.path))"
-          echo "Test détaillé de l'importation de pyjnius..."
-          echo -e "import sys\nimport os\ntry:\n    from jnius import autoclass\n    print('Pyjnius importé avec succès, version:', sys.modules['pyjnius'].__version__)\n    print('Test JNI avec autoclass...')\n    System = autoclass('java.lang.System')\n    print('Propriété Java:', System.getProperty('java.version'))\nexcept Exception as e:\n    print('Erreur lors de l\'importation de pyjnius:', str(e))\n    print('sys.path:', sys.path)\n    print('LD_LIBRARY_PATH:', os.environ.get('LD_LIBRARY_PATH'))\n    print('LD_PRELOAD:', os.environ.get('LD_PRELOAD'))\n    print('JAVA_HOME:', os.environ.get('JAVA_HOME'))\n    print('Contenu de jnius:', os.listdir('/home/runner/venv/lib/python3.9/site-packages/jnius'))\n    print('Vérification libjvm.so:', os.path.exists('/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so'))" > test_pyjnius.py
-          /home/runner/venv/bin/python -S test_pyjnius.py || { echo "Échec du test détaillé de pyjnius"; cat test_pyjnius.py; }
+          echo "Test détaillé de l'importation de Cython et pyjnius..."
+          echo -e "import sys\nimport os\ntry:\n    import cython\n    print('Cython importé avec succès, version:', cython.__version__)\nexcept Exception as e:\n    print('Erreur lors de l\'importation de Cython:', str(e))\ntry:\n    from jnius import autoclass\n    print('Pyjnius importé avec succès, version:', sys.modules['pyjnius'].__version__)\n    print('Test JNI avec autoclass...')\n    System = autoclass('java.lang.System')\n    print('Propriété Java:', System.getProperty('java.version'))\nexcept Exception as e:\n    print('Erreur lors de l\'importation de pyjnius:', str(e))\n    print('sys.path:', sys.path)\n    print('LD_LIBRARY_PATH:', os.environ.get('LD_LIBRARY_PATH'))\n    print('LD_PRELOAD:', os.environ.get('LD_PRELOAD'))\n    print('JAVA_HOME:', os.environ.get('JAVA_HOME'))\n    print('Contenu de jnius:', os.listdir('/home/runner/venv/lib/python3.9/site-packages/jnius') if os.path.exists('/home/runner/venv/lib/python3.9/site-packages/jnius') else 'Répertoire jnius introuvable')\n    print('Vérification libjvm.so:', os.path.exists('/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so'))\n    print('ldd jnius.so:', os.popen('ldd /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so').read() if os.path.exists('/home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so') else 'Fichier jnius.so introuvable')" > test_pyjnius.py
+          /home/runner/venv/bin/python -S test_pyjnius.py || { echo "Échec du test détaillé de Cython ou pyjnius"; cat test_pyjnius.py; }
+          echo "Vérification immédiate de Cython..."
+          /home/runner/venv/bin/python -S -c "import cython; print('Cython version:', cython.__version__)" || { echo "Échec de l'importation immédiate de Cython"; exit 1; }
           echo "Vérification immédiate de pyjnius..."
           /home/runner/venv/bin/python -S -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation binaire alternative..."; /home/runner/venv/bin/python -m pip install pyjnius==1.4.0 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_fallback_install.log 2>&1 || { echo "Échec de l'installation de pyjnius 1.4.0"; cat pip_pyjnius_fallback_install.log; exit 1; }; /home/runner/venv/bin/python -S test_pyjnius.py || { echo "Échec du test détaillé de pyjnius après fallback"; cat test_pyjnius.py; }; }
           echo "Liste des paquets Python installés :"
@@ -175,6 +179,7 @@ jobs:
       - name: Construire l'APK
         run: |
           source /home/runner/venv/bin/activate
+          unset PYTHONPATH
           export ANDROID_HOME=/home/runner/android-sdk
           export ANDROID_SDK_ROOT=/home/runner/android-sdk
           export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
