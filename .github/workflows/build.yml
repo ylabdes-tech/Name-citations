@@ -10,6 +10,7 @@ jobs:
       ANDROID_SDK_ROOT: /home/runner/android-sdk
       JAVA_HOME: /usr/lib/jvm/java-8-openjdk-amd64
       LD_LIBRARY_PATH: /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
+      LD_PRELOAD: /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so
       CFLAGS: -I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux
       LDFLAGS: -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64 -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm
       PATH: /home/runner/venv/bin:/bin:/usr/bin:/usr/local/bin:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
@@ -48,6 +49,8 @@ jobs:
           find /usr/lib/jvm/java-8-openjdk-amd64/include -name 'jni.h' || { echo "jni.h introuvable"; exit 1; }
           echo "Vérification de LD_LIBRARY_PATH :"
           echo $LD_LIBRARY_PATH
+          echo "Vérification de LD_PRELOAD :"
+          echo $LD_PRELOAD
       - name: Vérifier les installations Python et Java
         run: |
           echo "Vérification de Python 3.9 :"
@@ -59,6 +62,8 @@ jobs:
           $JAVA_HOME/bin/javac -version || { echo "Échec de l'installation de javac"; exit 1; }
           echo "Vérification des en-têtes JNI :"
           ls -la /usr/lib/jvm/java-8-openjdk-amd64/include/jni.h || { echo "jni.h introuvable"; exit 1; }
+          echo "Vérification de libjvm.so :"
+          ls -la /usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so || { echo "libjvm.so introuvable"; exit 1; }
       - name: Checkout du dépôt
         uses: actions/checkout@v4
       - name: Configurer Python
@@ -90,6 +95,7 @@ jobs:
           echo "Installation de Cython, setuptools et wheel..."
           export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
           export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
+          export LD_PRELOAD=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so
           export CFLAGS="-I/usr/lib/jvm/java-8-openjdk-amd64/include -I/usr/lib/jvm/java-8-openjdk-amd64/include/linux"
           export LDFLAGS="-L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64 -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm"
           /home/runner/venv/bin/python -m pip install cython==0.29.21 setuptools==65.5.1 wheel==0.38.4 --no-cache-dir --verbose > pip_cython_setuptools_install.log 2>&1 || { echo "Échec de l'installation de Cython, setuptools ou wheel"; cat pip_cython_setuptools_install.log; exit 1; }
@@ -108,6 +114,9 @@ jobs:
           ldd /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so || echo "Échec de la vérification des dépendances de jnius.cpython-39-x86_64-linux-gnu.so"
           echo "Vérification des chemins Python (sys.path) :"
           /home/runner/venv/bin/python -S -c "import sys; print('\n'.join(sys.path))"
+          echo "Test détaillé de l'importation de pyjnius..."
+          echo -e "import sys\ntry:\n    import pyjnius\n    print('Pyjnius version:', pyjnius.__version__)\nexcept Exception as e:\n    print('Erreur lors de l\'importation de pyjnius:', str(e))\n    print('sys.path:', sys.path)\n    import os\n    print('LD_LIBRARY_PATH:', os.environ.get('LD_LIBRARY_PATH'))\n    print('LD_PRELOAD:', os.environ.get('LD_PRELOAD'))" > test_pyjnius.py
+          /home/runner/venv/bin/python -S test_pyjnius.py || { echo "Échec du test détaillé de pyjnius"; cat test_pyjnius.py; }
           echo "Vérification immédiate de pyjnius..."
           /home/runner/venv/bin/python -S -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)" || { echo "Échec de l'importation immédiate de Pyjnius, tentative d'installation binaire alternative..."; /home/runner/venv/bin/python -m pip install pyjnius==1.4.0 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_fallback_install.log 2>&1 || { echo "Échec de l'installation de pyjnius 1.4.0"; cat pip_pyjnius_fallback_install.log; exit 1; }; /home/runner/venv/bin/python -S -c "import pyjnius; print('Pyjnius version (fallback 1.4.0):', pyjnius.__version__)"; }
           echo "Liste des paquets Python installés :"
@@ -166,6 +175,7 @@ jobs:
           export ANDROID_SDK_ROOT=/home/runner/android-sdk
           export JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64
           export LD_LIBRARY_PATH=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64:/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server:/usr/lib
+          export LD_PRELOAD=/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so
           export PATH=/home/runner/venv/bin:/bin:/usr/bin:/usr/local/bin:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
           /home/runner/venv/bin/buildozer android debug
       - name: Téléverser l'APK
