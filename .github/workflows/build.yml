@@ -34,7 +34,7 @@ jobs:
           openjdk-11-jdk openjdk-11-jre unzip zlib1g-dev libffi-dev libssl-dev \
           gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
 
-    - name: Verify Python and Java installations
+    - name: Verify installations
       run: |
         python3.10 --version
         python3.10 -m ensurepip --version || true
@@ -42,7 +42,7 @@ jobs:
         $JAVA_HOME/bin/javac -version
         ls -l $JAVA_HOME/include/jni.h
 
-    - name: Create and activate Python virtual environment with dependencies
+    - name: Setup Python venv & install dependencies with pyjnius patch
       shell: bash
       run: |
         python3.10 -m venv /home/runner/venv
@@ -50,20 +50,26 @@ jobs:
 
         pip install --upgrade pip setuptools wheel cython==0.29.36
 
-        # Export environment variables needed for compiling pyjnius
         export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
         export LD_LIBRARY_PATH=$JAVA_HOME/lib/server:$JAVA_HOME/lib:$JAVA_HOME/jre/lib/amd64/server:$JAVA_HOME/jre/lib/amd64
         export CFLAGS="-I$JAVA_HOME/include -I$JAVA_HOME/include/linux"
         export LDFLAGS="-L$JAVA_HOME/lib/server -L$JAVA_HOME/lib -ljvm"
         export JNIUS_PLATFORM=android
 
-        # Install buildozer, kivy, plyer
         pip install buildozer kivy==2.2.1 plyer --no-cache-dir
 
-        # Install pyjnius forcing local compilation, passing Cython directives and macro definition
-        pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir
+        # Workaround pour définir JNIUS_PLATFORM dans pyjnius en forçant options Cython
+        pip install --no-binary pyjnius --no-cache-dir --global-option=build_ext --global-option="-I$JAVA_HOME/include" --global-option="-I$JAVA_HOME/include/linux" pyjnius==1.6.1 || {
+          echo "L'installation de pyjnius via pip standard a échoué, tentative manuelle..."
+          git clone --depth=1 https://github.com/kivy/pyjnius.git
+          cd pyjnius
+          # Patch temporaire setup.py pour définir JNIUS_PLATFORM à android
+          sed -i "/ext_modules = cythonize(/i \
+          define_macros=[('JNIUS_PLATFORM','\"android\"'), ('JNIUS_PYTHON3', '1')]," setup.py
+          pip install .
+          cd ..
+        }
 
-        # Test imports
         python -c "import kivy; print('Kivy version:', kivy.__version__)"
         python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)"
         python -c "import plyer; print('Plyer imported successfully')"
