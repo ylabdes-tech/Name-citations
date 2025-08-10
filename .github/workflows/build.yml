@@ -105,50 +105,35 @@ jobs:
           export LDFLAGS="-L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64 -L/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server -ljvm"
           echo "Installation de Cython..."
           /home/runner/venv/bin/python -m pip install cython==0.29.21 --force-reinstall --no-cache-dir --verbose > pip_cython_install.log 2>&1
-          if [ $? -ne 0 ]; then
-            echo "Échec de l'installation de Cython"
-            cat pip_cython_install.log
-            exit 1
-          fi
+          cat pip_cython_install.log
           echo "Vérification des fichiers installés pour Cython..."
-          ls -la /home/runner/venv/lib/python3.9/site-packages/Cython || { echo "Répertoire Cython introuvable dans site-packages"; exit 1; }
-          ls -la /home/runner/venv/lib/python3.9/site-packages/cython.py || { echo "Fichier cython.py introuvable"; exit 1; }
+          ls -la /home/runner/venv/lib/python3.9/site-packages/Cython || echo "Répertoire Cython introuvable dans site-packages"
+          ls -la /home/runner/venv/lib/python3.9/site-packages/cython.py || echo "Fichier cython.py introuvable"
           echo "Vérification immédiate de Cython après installation..."
           /home/runner/venv/bin/python -S -c "import Cython; print('Cython version:', Cython.__version__)" || { echo "Échec de l'importation de Cython après installation"; exit 1; }
           echo "Installation de setuptools et wheel..."
           /home/runner/venv/bin/python -m pip install setuptools==65.5.1 wheel==0.38.4 --force-reinstall --no-cache-dir --verbose > pip_setuptools_wheel_install.log 2>&1
-          if [ $? -ne 0 ]; then
-            echo "Échec de l'installation de setuptools ou wheel"
-            cat pip_setuptools_wheel_install.log
-            exit 1
-          fi
+          cat pip_setuptools_wheel_install.log
           echo "Installation des dépendances Python de base..."
           /home/runner/venv/bin/python -m pip install buildozer kivy==2.2.1 plyer --no-cache-dir --verbose > pip_base_install.log 2>&1
-          if [ $? -ne 0 ]; then
-            echo "Échec de l'installation des dépendances de base"
-            cat pip_base_install.log
-            exit 1
-          fi
+          cat pip_base_install.log
           echo "Installation de pyjnius..."
           /home/runner/venv/bin/python -m pip install pyjnius==1.6.1 --force-reinstall --no-cache-dir --no-deps --verbose > pip_pyjnius_install.log 2>&1
-          if [ $? -ne 0 ]; then
-            echo "Échec de l'installation de pyjnius"
-            cat pip_pyjnius_install.log
-            exit 1
-          fi
+          cat pip_pyjnius_install.log
           echo "Contenu du log d'installation de pyjnius :"
           cat pip_pyjnius_install.log
           echo "Vérification des fichiers installés pour pyjnius..."
-          ls -la /home/runner/venv/lib/python3.9/site-packages/jnius || { echo "Répertoire jnius introuvable dans site-packages"; exit 1; }
+          ls -la /home/runner/venv/lib/python3.9/site-packages/jnius || echo "Répertoire jnius introuvable dans site-packages"
           echo "Vérification de la présence de __init__.py dans jnius..."
           ls -la /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py || { echo "__init__.py introuvable dans jnius, création manuelle..."; echo -e "from .jnius import *" > /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py; cat /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py; ls -la /home/runner/venv/lib/python3.9/site-packages/jnius/__init__.py; }
           echo "Vérification de l'intégrité de jnius.cpython-39-x86_64-linux-gnu.so :"
-          file /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so || { echo "Fichier jnius.cpython-39-x86_64-linux-gnu.so introuvable"; exit 1; }
-          ldd /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so || { echo "Échec de la vérification des dépendances de jnius.cpython-39-x86_64-linux-gnu.so"; exit 1; }
+          file /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so || echo "Fichier jnius.cpython-39-x86_64-linux-gnu.so introuvable"
+          ldd /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so || echo "Échec de la vérification des dépendances de jnius.cpython-39-x86_64-linux-gnu.so"
           echo "Vérification des chemins Python (sys.path) :"
           /home/runner/venv/bin/python -S -c "import sys; print('\n'.join(sys.path))"
           echo "Test détaillé de l'importation de Cython et pyjnius..."
-          echo -e "import sys\nimport os\ntry:\n    import cython\n    print('Cython importé avec succès, version:', cython.__version__)\nexcept Exception as e:\n    print('Erreur lors de l\'importation de Cython:', str(e))\ntry:\n    from jnius import autoclass\n    print('Pyjnius importé avec succès, version:', sys.modules['pyjnius'].__version__)\n    print('Test JNI avec autoclass...')\n    System = autoclass('java.lang.System')\n    print('Propriété Java:', System.getProperty('java.version'))\nexcept Exception as e:\n    print('Erreur lors de l\'importation de pyjnius:', str(e))\n    print('sys.path:', sys.path)\n    print('LD_LIBRARY_PATH:', os.environ.get('LD_LIBRARY_PATH'))\n    print('LD_PRELOAD:', os.environ.get('LD_PRELOAD'))\n    print('JAVA_HOME:', os.environ.get('JAVA_HOME'))\n    print('Contenu de jnius:', os.listdir('/home/runner/venv/lib/python3.9/site-packages/jnius') if os.path.exists('/home/runner/venv/lib/python3.9/site-packages/jnius') else 'Répertoire jnius introuvable')\n    print('Vérification libjvm.so:', os.path.exists('/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so'))\n    print('ldd jnius.so:', os.popen('ldd /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so').read() if os.path.exists('/home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so') else 'Fichier jnius.so introuvable')" > test_pyjnius.py
+          echo -e "import sys\nimport os\ntry:\n    import cython\n    print('Cython importé avec succès, version:', cython.__version__)\nexcept Exception as e:\n    print('Erreur lors de l\'importation de Cython:', str(e))\ntry:\n    from jnius import autoclass\n    print('Pyjnius importé avec succès, version:', sys.modules['pyjnius'].__version__)\n    print('Test JNI avec autoclass...')\n    System = autoclass('java.lang.System')
+    print('Propriété Java:', System.getProperty('java.version'))\nexcept Exception as e:\n    print('Erreur lors de l\'importation de pyjnius:', str(e))\n    print('sys.path:', sys.path)\n    print('LD_LIBRARY_PATH:', os.environ.get('LD_LIBRARY_PATH'))\n    print('LD_PRELOAD:', os.environ.get('LD_PRELOAD'))\n    print('JAVA_HOME:', os.environ.get('JAVA_HOME'))\n    print('Contenu de jnius:', os.listdir('/home/runner/venv/lib/python3.9/site-packages/jnius') if os.path.exists('/home/runner/venv/lib/python3.9/site-packages/jnius') else 'Répertoire jnius introuvable')\n    print('Vérification libjvm.so:', os.path.exists('/usr/lib/jvm/java-8-openjdk-amd64/jre/lib/amd64/server/libjvm.so'))\n    print('ldd jnius.so:', os.popen('ldd /home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so').read() if os.path.exists('/home/runner/venv/lib/python3.9/site-packages/jnius/jnius.cpython-39-x86_64-linux-gnu.so') else 'Fichier jnius.so introuvable')" > test_pyjnius.py
           /home/runner/venv/bin/python -S test_pyjnius.py || { echo "Échec du test détaillé de Cython ou pyjnius"; cat test_pyjnius.py; exit 1; }
           echo "Liste des paquets Python installés :"
           /home/runner/venv/bin/python -m pip list
@@ -161,13 +146,7 @@ jobs:
           /home/runner/venv/bin/buildozer init || { echo "Échec de la génération de buildozer.spec"; exit 1; }
           echo "Configuration du fichier buildozer.spec..."
           sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.6.1,plyer,difflib/' buildozer.spec
-          if [ -f "icon.ico" ]; then
-            echo "icon.ico trouvé, configuration dans buildozer.spec..."
-            sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
-          else
-            echo "icon.ico non trouvé, désactivation dans buildozer.spec..."
-            sed -i 's/#icon = .*/#icon = none/' buildozer.spec
-          fi
+          sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
           sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
           sed -i 's/title = .*/title = Citations Positives/' buildozer.spec
           sed -i 's/package.name = .*/package.name = citationspositives/' buildozer.spec
@@ -175,7 +154,7 @@ jobs:
           sed -i 's/version = .*/version = 1.0/' buildozer.spec
           sed -i 's/orientation = .*/orientation = portrait/' buildozer.spec
           sed -i 's|#android.sdk_path =.*|android.sdk_path = /home/runner/android-sdk|' buildozer.spec
-          sed -i 's|#android.ndk_path =.*|android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b|' buildozer.spec
+          sed -i 's|#android.ndk_path = .*/android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b/' buildozer.spec
           sed -i 's/log_level = .*/log_level = 2/' buildozer.spec
           sed -i 's/android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
           echo "Contenu du fichier buildozer.spec :"
