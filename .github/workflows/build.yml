@@ -1,125 +1,30 @@
-name: Build Android APK
+- name: Setup Python venv & install dependencies with pyjnius patch
+  shell: bash
+  run: |
+    python3.10 -m venv /home/runner/venv
+    source /home/runner/venv/bin/activate
 
-on:
-  push:
-    branches:
-      - main
+    pip install --upgrade pip setuptools wheel cython==0.29.36
 
-jobs:
-  build:
-    runs-on: ubuntu-22.04
+    export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+    export LD_LIBRARY_PATH=$JAVA_HOME/lib/server:$JAVA_HOME/lib:$JAVA_HOME/jre/lib/amd64/server:$JAVA_HOME/jre/lib/amd64
+    export CFLAGS="-I$JAVA_HOME/include -I$JAVA_HOME/include/linux"
+    export LDFLAGS="-L$JAVA_HOME/lib/server -L$JAVA_HOME/lib -ljvm"
+    export JNIUS_PLATFORM=android
 
-    env:
-      ANDROID_HOME: /home/runner/android-sdk
-      ANDROID_SDK_ROOT: /home/runner/android-sdk
-      JAVA_HOME: /usr/lib/jvm/java-11-openjdk-amd64
-      PATH: /home/runner/venv/bin:/bin:/usr/bin:/usr/local/bin:/home/runner/android-sdk/cmdline-tools/latest/bin:/home/runner/android-sdk/platform-tools:/home/runner/android-sdk/build-tools/30.0.3
-      PYTHONPATH: /home/runner/venv/lib/python3.10/site-packages
-      PYTHONNOUSERSITE: 1
+    pip install buildozer kivy==2.2.1 plyer --no-cache-dir
 
-    steps:
-    - name: Clean apt locks
-      run: |
-        sudo rm -f /var/lib/apt/lists/lock
-        sudo rm -f /var/cache/apt/*.bin
-        sudo rm -rf /var/lib/apt/lists/*
+    # Tentative d’installation pyjnius avec options de build spécifiques
+    pip install --no-binary pyjnius --no-cache-dir --global-option=build_ext --global-option="-I$JAVA_HOME/include" --global-option="-I$JAVA_HOME/include/linux" pyjnius==1.6.1 || {
+      # En cas d’échec, clonage et patch manuel
+      git clone --depth=1 https://github.com/kivy/pyjnius.git
+      cd pyjnius
+      sed -i "/ext_modules = cythonize(/i \
+      define_macros=[('JNIUS_PLATFORM','\"android\"'), ('JNIUS_PYTHON3', '1')]," setup.py
+      pip install .
+      cd ..
+    }
 
-    - name: Install system dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y \
-          git tar build-essential python3.10 python3.10-dev python3.10-venv python3.10-distutils python3-pip \
-          ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
-          openjdk-11-jdk openjdk-11-jre unzip zlib1g-dev libffi-dev libssl-dev \
-          gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
-
-    - name: Verify Python and Java installations
-      run: |
-        python3.10 --version
-        python3.10 -m ensurepip --version || true
-        $JAVA_HOME/bin/java -version
-        $JAVA_HOME/bin/javac -version
-        ls -l $JAVA_HOME/include/jni.h
-
-    - name: Create and activate Python virtual environment with dependencies
-      shell: bash
-      run: |
-        python3.10 -m venv /home/runner/venv
-        source /home/runner/venv/bin/activate
-
-        pip install --upgrade pip setuptools wheel cython==0.29.36
-
-        export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-        export LD_LIBRARY_PATH=$JAVA_HOME/lib/server:$JAVA_HOME/lib:$JAVA_HOME/jre/lib/amd64/server:$JAVA_HOME/jre/lib/amd64
-        export CFLAGS="-I$JAVA_HOME/include -I$JAVA_HOME/include/linux"
-        export LDFLAGS="-L$JAVA_HOME/lib/server -L$JAVA_HOME/lib -ljvm"
-        export JNIUS_PLATFORM=android
-
-        pip install buildozer kivy==2.2.1 plyer --no-cache-dir
-
-        # Installer pyjnius en forçant compilation locale sans tenter de récupérer __version__
-        pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir
-
-        python -c "import kivy; print('Kivy version:', kivy.__version__)"
-        python -c "import pyjnius; print('Pyjnius imported successfully')"
-        python -c "import plyer; print('Plyer imported successfully')"
-
-    - name: Clean Buildozer cache
-      run: |
-        rm -rf /home/runner/.buildozer .buildozer
-        rm -rf /home/runner/work/${{ github.repository }}/.buildozer/android/platform/build-arm64-v8a_armeabi-v7a || true
-
-    - name: Install Android SDK command-line tools
-      run: |
-        mkdir -p $ANDROID_HOME/cmdline-tools
-        wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-        unzip cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
-        mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME "build-tools;30.0.3" "platforms;android-30" "platform-tools"
-        yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --sdk_root=$ANDROID_HOME --licenses
-
-    - name: Initialize Buildozer
-      run: |
-        source /home/runner/venv/bin/activate
-        buildozer init
-
-    - name: Configure buildozer.spec
-      run: |
-        sed -i 's/requirements = .*/requirements = python3,kivy==2.2.1,pyjnius==1.6.1,plyer,difflib/' buildozer.spec
-        sed -i 's/#icon = .*/icon = icon.ico/' buildozer.spec
-        sed -i 's/android.permissions = .*/android.permissions = INTERNET,ACCESS_NETWORK_STATE/' buildozer.spec
-        sed -i 's/title = .*/title = Citations Positives/' buildozer.spec
-        sed -i 's/package.name = .*/package.name = citationspositives/' buildozer.spec
-        sed -i 's/package.domain = .*/package.domain = org.example/' buildozer.spec
-        sed -i 's/version = .*/version = 1.0/' buildozer.spec
-        sed -i 's/orientation = .*/orientation = portrait/' buildozer.spec
-        sed -i 's|#android.sdk_path =.*|android.sdk_path = /home/runner/android-sdk|' buildozer.spec
-        sed -i 's|#android.ndk_path =.*|android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r25b|' buildozer.spec
-        sed -i 's/log_level = .*/log_level = 2/' buildozer.spec
-        sed -i 's/android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
-
-        cat buildozer.spec
-
-    - name: Build APK
-      shell: bash
-      run: |
-        source /home/runner/venv/bin/activate
-
-        export ANDROID_HOME=/home/runner/android-sdk
-        export ANDROID_SDK_ROOT=$ANDROID_HOME
-        export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
-        export LD_LIBRARY_PATH=$JAVA_HOME/lib/server:$JAVA_HOME/lib:$JAVA_HOME/jre/lib/amd64/server:$JAVA_HOME/jre/lib/amd64
-        export CFLAGS="-I$JAVA_HOME/include -I$JAVA_HOME/include/linux"
-        export LDFLAGS="-L$JAVA_HOME/lib/server -L$JAVA_HOME/lib -ljvm"
-        export PYTHONPATH=/home/runner/venv/lib/python3.10/site-packages
-        export PYTHONNOUSERSITE=1
-        export PATH=/home/runner/venv/bin:/bin:/usr/bin:/usr/local/bin:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$ANDROID_HOME/build-tools/30.0.3
-
-        buildozer android debug
-
-    - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: apk
-        path: bin/*.apk
+    python -c "import kivy; print('Kivy version:', kivy.__version__)"
+    python -c "import pyjnius; print('Pyjnius imported successfully')"
+    python -c "import plyer; print('Plyer imported successfully')"
