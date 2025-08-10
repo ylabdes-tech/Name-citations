@@ -28,13 +28,12 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install -y \
-          git tar build-essential \
-          python3.10 python3.10-dev python3.10-venv python3.10-distutils python3-pip \
+          git tar build-essential python3.10 python3.10-dev python3.10-venv python3.10-distutils python3-pip \
           ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
           openjdk-11-jdk openjdk-11-jre unzip zlib1g-dev libffi-dev libssl-dev \
           gcc g++ libc6-dev libstdc++6 libjpeg-dev libpng-dev
 
-    - name: Verify installations
+    - name: Verify Python and Java installations
       run: |
         python3.10 --version
         python3.10 -m ensurepip --version || true
@@ -42,7 +41,7 @@ jobs:
         $JAVA_HOME/bin/javac -version
         ls -l $JAVA_HOME/include/jni.h
 
-    - name: Setup Python venv & install dependencies with pyjnius patch
+    - name: Create and activate Python virtual environment with dependencies
       shell: bash
       run: |
         python3.10 -m venv /home/runner/venv
@@ -58,20 +57,11 @@ jobs:
 
         pip install buildozer kivy==2.2.1 plyer --no-cache-dir
 
-        # Workaround pour définir JNIUS_PLATFORM dans pyjnius en forçant options Cython
-        pip install --no-binary pyjnius --no-cache-dir --global-option=build_ext --global-option="-I$JAVA_HOME/include" --global-option="-I$JAVA_HOME/include/linux" pyjnius==1.6.1 || {
-          echo "L'installation de pyjnius via pip standard a échoué, tentative manuelle..."
-          git clone --depth=1 https://github.com/kivy/pyjnius.git
-          cd pyjnius
-          # Patch temporaire setup.py pour définir JNIUS_PLATFORM à android
-          sed -i "/ext_modules = cythonize(/i \
-          define_macros=[('JNIUS_PLATFORM','\"android\"'), ('JNIUS_PYTHON3', '1')]," setup.py
-          pip install .
-          cd ..
-        }
+        # Installer pyjnius en forçant compilation locale sans tenter de récupérer __version__
+        pip install pyjnius==1.6.1 --no-binary pyjnius --no-cache-dir
 
         python -c "import kivy; print('Kivy version:', kivy.__version__)"
-        python -c "import pyjnius; print('Pyjnius version:', pyjnius.__version__)"
+        python -c "import pyjnius; print('Pyjnius imported successfully')"
         python -c "import plyer; print('Plyer imported successfully')"
 
     - name: Clean Buildozer cache
